@@ -1,0 +1,15 @@
+# CV Studio - Free Resume Builder
+# https://cvstudio.app
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://cvstudio.app/sitemap.xml
+
+# Crawl-delay (optional, be nice to search engines)
+Crawl-delay: 1
+
+# Block unnecessary paths (if any exist later)
+# Disallow: /api/
+# Disallow: /admin/

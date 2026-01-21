@@ -1,0 +1,46 @@
+{
+  "name": "CV Studio - Free Resume Builder",
+  "short_name": "CV Studio",
+  "description": "100% free resume builder. No signup, no payment. Create professional resumes instantly.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3B82F6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-US",
+  "categories": ["productivity", "business", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Upload Resume",
+      "short_name": "Upload",
+      "description": "Upload and parse your existing resume",
+      "url": "/?tab=upload",
+      "icons": []
+    },
+    {
+      "name": "Resume Editor",
+      "short_name": "Editor",
+      "description": "Edit and customize your resume",
+      "url": "/?tab=editor",
+      "icons": []
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
