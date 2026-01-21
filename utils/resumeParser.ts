@@ -470,36 +470,100 @@ function extractSkills(sections: ParsedSection[]): SkillCategory[] {
  * Parse DOCX file content
  */
 export async function parseDocxFile(file: File): Promise<string> {
-  const mammoth = await import('mammoth');
-  const arrayBuffer = await file.arrayBuffer();
-  const result = await mammoth.extractRawText({ arrayBuffer });
-  return result.value;
+  try {
+    const mammoth = await import('mammoth');
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    return result.value;
+  } catch (error) {
+    console.error('DOCX parsing error:', error);
+    throw new Error('Failed to parse DOCX file. Please try a different file.');
+  }
 }
 
 /**
- * Parse PDF file content (client-side)
+ * Parse PDF file content (client-side using FileReader)
+ * Simple text extraction without external PDF libraries
  */
 export async function parsePdfFile(file: File): Promise<string> {
-  // For client-side PDF parsing, we'll use a simpler approach
-  // since pdf-parse requires Node.js
-  const pdfjs = await import('pdfjs-dist');
-  
-  // Set worker
-  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-  
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-  
-  let fullText = '';
-  
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items
-      .map((item: any) => item.str)
-      .join(' ');
-    fullText += pageText + '\n';
+  try {
+    // Read file as ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Convert to string and try to extract text
+    let text = '';
+    
+    // Try to decode as text (works for some PDFs)
+    const decoder = new TextDecoder('utf-8', { fatal: false });
+    const rawText = decoder.decode(uint8Array);
+    
+    // Extract text between stream markers (basic PDF text extraction)
+    const streamMatches = rawText.match(/stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g);
+    
+    if (streamMatches) {
+      for (const match of streamMatches) {
+        // Try to extract readable text
+        const content = match.replace(/stream[\r\n]+/, '').replace(/[\r\n]+endstream/, '');
+        
+        // Look for text between parentheses (PDF text objects)
+        const textMatches = content.match(/\(([^)]+)\)/g);
+        if (textMatches) {
+          for (const tm of textMatches) {
+            const cleanText = tm.slice(1, -1)
+              .replace(/\\n/g, '\n')
+              .replace(/\\r/g, '')
+              .replace(/\\\(/g, '(')
+              .replace(/\\\)/g, ')')
+              .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
+            
+            if (cleanText.length > 1 && /[a-zA-Z]/.test(cleanText)) {
+              text += cleanText + ' ';
+            }
+          }
+        }
+        
+        // Also look for Tj and TJ operators
+        const tjMatches = content.match(/\[([^\]]+)\]\s*TJ|\(([^)]+)\)\s*Tj/g);
+        if (tjMatches) {
+          for (const tj of tjMatches) {
+            const cleanText = tj.replace(/\[|\]|TJ|Tj|\(|\)/g, ' ').trim();
+            if (cleanText.length > 1 && /[a-zA-Z]/.test(cleanText)) {
+              text += cleanText + ' ';
+            }
+          }
+        }
+      }
+    }
+    
+    // Clean up the extracted text
+    text = text
+      .replace(/\s+/g, ' ')
+      .replace(/[^\x20-\x7E\n]/g, ' ')
+      .trim();
+    
+    // If we got some meaningful text, return it
+    if (text.length > 100 && /[a-zA-Z]{3,}/.test(text)) {
+      return text;
+    }
+    
+    // Fallback: Try a simpler extraction for ASCII-based PDFs
+    const simpleText = rawText
+      .replace(/[^\x20-\x7E\n]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // Look for recognizable resume keywords
+    if (simpleText.includes('experience') || simpleText.includes('education') || 
+        simpleText.includes('skills') || simpleText.includes('summary') ||
+        simpleText.includes('@') || simpleText.match(/\d{3}[-.\s]\d{3}/)) {
+      return simpleText;
+    }
+    
+    throw new Error('Could not extract text from PDF. Please try uploading a DOCX file instead, or copy-paste your resume content.');
+    
+  } catch (error) {
+    console.error('PDF parsing error:', error);
+    throw new Error('Failed to parse PDF. DOCX files work better - please try converting your resume to DOCX format.');
   }
-  
-  return fullText;
 }
