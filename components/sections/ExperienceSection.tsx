@@ -9,7 +9,7 @@ import { ExperienceItem } from '@/types/resume';
 
 /**
  * Professional Experience section component
- * Uses CSS variables for spacing that responds to toolbar controls
+ * Handles empty state with add prompt
  */
 export default function ExperienceSection() {
   const { resumeData, setResumeData, editingSection, setEditingSection, editingItemId, setEditingItemId } = useResume();
@@ -19,14 +19,35 @@ export default function ExperienceSection() {
   const isEditing = editingSection === 'experience';
 
   const handleEdit = () => {
-    setEditData(JSON.parse(JSON.stringify(experience)));
+    // If no experience, start with one empty entry
+    if (experience.length === 0) {
+      setEditData([{
+        id: `exp-${Date.now()}`,
+        role: '',
+        company: '',
+        period: '',
+        description: '',
+        bullets: [''],
+      }]);
+    } else {
+      setEditData(JSON.parse(JSON.stringify(experience)));
+    }
     setEditingSection('experience');
   };
 
   const handleSave = () => {
+    // Filter out empty experiences
+    const validExperiences = editData.filter(exp => exp.role.trim() || exp.company.trim());
+    // Also filter out empty bullets
+    const cleanedExperiences = validExperiences.map(exp => ({
+      ...exp,
+      bullets: exp.bullets.filter(b => b.trim()),
+      achievements: (exp.achievements || []).filter(a => a.trim()),
+    }));
+    
     setResumeData((prev) => ({
       ...prev,
-      experience: editData,
+      experience: cleanedExperiences,
     }));
     setEditingSection(null);
     setEditingItemId(null);
@@ -49,11 +70,11 @@ export default function ExperienceSection() {
   const addExperience = () => {
     const newExp: ExperienceItem = {
       id: `exp-${Date.now()}`,
-      role: 'New Position',
-      company: 'Company Name',
-      period: 'Start – End',
+      role: '',
+      company: '',
+      period: '',
       description: '',
-      bullets: [],
+      bullets: [''],
     };
     setEditData((prev) => [newExp, ...prev]);
     setEditingItemId(newExp.id);
@@ -115,6 +136,7 @@ export default function ExperienceSection() {
     );
   };
 
+  // Edit mode
   if (isEditing) {
     return (
       <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
@@ -144,16 +166,42 @@ export default function ExperienceSection() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField label="Job Title" value={exp.role} onChange={(value) => updateExperience(exp.id, 'role', value)} />
-                  <InputField label="Period" value={exp.period} onChange={(value) => updateExperience(exp.id, 'period', value)} />
+                  <InputField 
+                    label="Job Title" 
+                    value={exp.role} 
+                    onChange={(value) => updateExperience(exp.id, 'role', value)} 
+                    placeholder="e.g., Software Engineer"
+                  />
+                  <InputField 
+                    label="Period" 
+                    value={exp.period} 
+                    onChange={(value) => updateExperience(exp.id, 'period', value)} 
+                    placeholder="e.g., Jan 2022 – Present"
+                  />
                   <div className="md:col-span-2">
-                    <InputField label="Company" value={exp.company} onChange={(value) => updateExperience(exp.id, 'company', value)} />
+                    <InputField 
+                      label="Company" 
+                      value={exp.company} 
+                      onChange={(value) => updateExperience(exp.id, 'company', value)} 
+                      placeholder="e.g., Google"
+                    />
                   </div>
                   <div className="md:col-span-2">
-                    <InputField label="Client Note (optional)" value={exp.clientNote || ''} onChange={(value) => updateExperience(exp.id, 'clientNote', value)} />
+                    <InputField 
+                      label="Client Note (optional)" 
+                      value={exp.clientNote || ''} 
+                      onChange={(value) => updateExperience(exp.id, 'clientNote', value)} 
+                      placeholder="e.g., Client-facing role with Fortune 500 companies"
+                    />
                   </div>
                   <div className="md:col-span-2">
-                    <TextAreaField label="Description" value={exp.description} onChange={(value) => updateExperience(exp.id, 'description', value)} rows={3} />
+                    <TextAreaField 
+                      label="Description" 
+                      value={exp.description} 
+                      onChange={(value) => updateExperience(exp.id, 'description', value)} 
+                      rows={3} 
+                      placeholder="Brief overview of your role and responsibilities..."
+                    />
                   </div>
                 </div>
 
@@ -167,6 +215,7 @@ export default function ExperienceSection() {
                           onChange={(e) => updateBullet(exp.id, idx, e.target.value)}
                           rows={2}
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          placeholder="Describe an achievement or responsibility..."
                         />
                         <button onClick={() => removeBullet(exp.id, idx)} className="p-2 text-red-500 hover:bg-red-50 rounded">
                           <Trash2 size={14} />
@@ -187,6 +236,7 @@ export default function ExperienceSection() {
                           value={achievement}
                           onChange={(e) => updateAchievement(exp.id, idx, e.target.value)}
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          placeholder="e.g., Increased revenue by 25%"
                         />
                         <button onClick={() => removeAchievement(exp.id, idx)} className="p-2 text-red-500 hover:bg-red-50 rounded">
                           <Trash2 size={14} />
@@ -204,6 +254,23 @@ export default function ExperienceSection() {
     );
   }
 
+  // Empty state
+  if (experience.length === 0) {
+    return (
+      <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+        <div 
+          onClick={handleEdit}
+          className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
+        >
+          <Plus size={24} className="mx-auto mb-2 text-gray-400" />
+          <p className="text-gray-500 font-medium">Add Work Experience</p>
+          <p className="text-sm text-gray-400">Click to add your professional experience</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal view
   return (
     <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection title="PROFESSIONAL EXPERIENCE" onEdit={handleEdit} isEditing={isEditing}>

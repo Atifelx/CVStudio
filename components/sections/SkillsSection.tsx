@@ -9,24 +9,36 @@ import { SkillCategory } from '@/types/resume';
 
 /**
  * Technical Skills section component
- * Uses CSS variables for spacing that responds to toolbar controls
+ * Handles empty state with add prompt
  */
 export default function SkillsSection() {
   const { resumeData, setResumeData, editingSection, setEditingSection } = useResume();
-  const { skills } = resumeData;
+  const { skills, sectionVisibility } = resumeData;
   
   const [editData, setEditData] = useState<SkillCategory[]>(skills);
   const isEditing = editingSection === 'skills';
+  const isVisible = sectionVisibility?.skills ?? true;
 
   const handleEdit = () => {
-    setEditData([...skills]);
+    // If no skills, start with one empty category
+    if (skills.length === 0) {
+      setEditData([{
+        id: `skill-${Date.now()}`,
+        category: '',
+        skills: '',
+      }]);
+    } else {
+      setEditData([...skills]);
+    }
     setEditingSection('skills');
   };
 
   const handleSave = () => {
+    // Filter out empty categories
+    const validSkills = editData.filter(s => s.category.trim() || s.skills.trim());
     setResumeData((prev) => ({
       ...prev,
-      skills: editData,
+      skills: validSkills,
     }));
     setEditingSection(null);
   };
@@ -34,6 +46,27 @@ export default function SkillsSection() {
   const handleCancel = () => {
     setEditData([...skills]);
     setEditingSection(null);
+  };
+
+  const handleDeleteSection = () => {
+    setResumeData((prev) => ({
+      ...prev,
+      sectionVisibility: {
+        ...prev.sectionVisibility,
+        skills: false,
+      },
+    }));
+    setEditingSection(null);
+  };
+
+  const handleRestore = () => {
+    setResumeData((prev) => ({
+      ...prev,
+      sectionVisibility: {
+        ...prev.sectionVisibility,
+        skills: true,
+      },
+    }));
   };
 
   const updateSkill = (id: string, field: keyof SkillCategory, value: string) => {
@@ -47,7 +80,7 @@ export default function SkillsSection() {
   const addSkillCategory = () => {
     const newSkill: SkillCategory = {
       id: `skill-${Date.now()}`,
-      category: 'New Category',
+      category: '',
       skills: '',
     };
     setEditData((prev) => [...prev, newSkill]);
@@ -57,55 +90,116 @@ export default function SkillsSection() {
     setEditData((prev) => prev.filter((skill) => skill.id !== id));
   };
 
-  if (isEditing) {
+  // Hidden state
+  if (!isVisible) {
     return (
-      <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
-        <EditSection onSave={handleSave} onCancel={handleCancel} title="Technical Skills">
-          <div className="space-y-4">
-            {editData.map((skill, index) => (
-              <div key={skill.id} className="p-4 bg-white rounded-lg border border-gray-200">
-                <div className="flex justify-between items-start mb-3">
-                  <span className="text-sm font-medium text-gray-500">
-                    Category {index + 1}
-                  </span>
-                  <button
-                    onClick={() => removeSkillCategory(skill.id)}
-                    className="p-1 text-red-500 hover:bg-red-50 rounded"
-                    title="Remove category"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 gap-3">
-                  <InputField
-                    label="Category Name"
-                    value={skill.category}
-                    onChange={(value) => updateSkill(skill.id, 'category', value)}
-                    placeholder="e.g., Programming Languages"
-                  />
-                  <TextAreaField
-                    label="Skills (separate with | )"
-                    value={skill.skills}
-                    onChange={(value) => updateSkill(skill.id, 'skills', value)}
-                    placeholder="Python | JavaScript | TypeScript | Go"
-                    rows={2}
-                  />
-                </div>
-              </div>
-            ))}
-            <button
-              onClick={addSkillCategory}
-              className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-            >
-              <Plus size={18} />
-              Add Skill Category
-            </button>
-          </div>
-        </EditSection>
+      <div className="px-8 py-2 no-print">
+        <button
+          onClick={handleRestore}
+          className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+        >
+          <Plus size={14} />
+          <span className="text-xs font-medium">Add Skills Section</span>
+        </button>
       </div>
     );
   }
 
+  // Edit mode
+  if (isEditing) {
+    return (
+      <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+        <div className="border border-blue-200 rounded-lg overflow-hidden">
+          <div className="bg-blue-50 px-4 py-3 flex items-center justify-between border-b border-blue-200">
+            <h3 className="font-semibold text-blue-800">Edit: Technical Skills</h3>
+            <button
+              onClick={handleDeleteSection}
+              className="flex items-center gap-2 px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 rounded-md transition-colors text-sm font-medium"
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          </div>
+          
+          <div className="p-4 bg-white">
+            <div className="space-y-4">
+              {editData.map((skill, index) => (
+                <div key={skill.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex justify-between items-start mb-3">
+                    <span className="text-sm font-medium text-gray-500">
+                      Category {index + 1}
+                    </span>
+                    <button
+                      onClick={() => removeSkillCategory(skill.id)}
+                      className="p-1 text-red-500 hover:bg-red-50 rounded"
+                      title="Remove category"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    <InputField
+                      label="Category Name"
+                      value={skill.category}
+                      onChange={(value) => updateSkill(skill.id, 'category', value)}
+                      placeholder="e.g., Programming Languages"
+                    />
+                    <TextAreaField
+                      label="Skills (separate with | )"
+                      value={skill.skills}
+                      onChange={(value) => updateSkill(skill.id, 'skills', value)}
+                      placeholder="Python | JavaScript | TypeScript | Go"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={addSkillCategory}
+                className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                <Plus size={18} />
+                Add Skill Category
+              </button>
+            </div>
+            
+            <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-200">
+              <button
+                onClick={handleCancel}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md transition-colors text-sm font-medium"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty state
+  if (skills.length === 0) {
+    return (
+      <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+        <div 
+          onClick={handleEdit}
+          className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
+        >
+          <Plus size={24} className="mx-auto mb-2 text-gray-400" />
+          <p className="text-gray-500 font-medium">Add Technical Skills</p>
+          <p className="text-sm text-gray-400">Click to add your skills</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal view
   return (
     <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection 
