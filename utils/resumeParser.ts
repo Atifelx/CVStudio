@@ -2,7 +2,7 @@ import { ResumeData, ExperienceItem, EducationItem, SkillCategory } from '@/type
 
 /**
  * Resume Parser Utility
- * Simple and reliable PDF/DOCX parsing
+ * Robust PDF/DOCX parsing with multiple fallback methods
  */
 
 // Section patterns for identifying resume sections
@@ -71,125 +71,203 @@ async function parseDocxFile(file: File): Promise<string> {
 }
 
 /**
- * Parse PDF file - simple text extraction without heavy dependencies
+ * Parse PDF file using PDF.js
  */
 async function parsePdfFile(file: File): Promise<string> {
+  console.log('Starting PDF parsing...');
+  
   try {
+    // Dynamic import of pdfjs-dist
+    const pdfjsLib = await import('pdfjs-dist');
+    
+    // Set up the worker - use CDN for reliability
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    
     const arrayBuffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
     
-    // Convert to string for pattern matching
-    let content = '';
-    for (let i = 0; i < bytes.length; i++) {
-      const byte = bytes[i];
-      // Only include printable ASCII and common characters
-      if (byte >= 32 && byte <= 126) {
-        content += String.fromCharCode(byte);
-      } else if (byte === 10 || byte === 13) {
-        content += '\n';
-      }
-    }
+    // Load the PDF document
+    const loadingTask = pdfjsLib.getDocument({
+      data: arrayBuffer,
+      useWorkerFetch: false,
+      isEvalSupported: false,
+      useSystemFonts: true,
+    });
     
-    // Extract text from PDF content streams
-    const extractedTexts: string[] = [];
+    const pdf = await loadingTask.promise;
+    console.log(`PDF loaded: ${pdf.numPages} pages`);
     
-    // Method 1: Extract from BT...ET blocks (PDF text objects)
-    const btEtRegex = /BT\s*([\s\S]*?)\s*ET/g;
-    let match;
+    let fullText = '';
     
-    while ((match = btEtRegex.exec(content)) !== null) {
-      const block = match[1];
+    // Extract text from each page
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
       
-      // Extract text from Tj operator (show text)
-      const tjMatches = block.match(/\(([^)]+)\)\s*Tj/g);
-      if (tjMatches) {
-        for (const tjMatch of tjMatches) {
-          const textMatch = tjMatch.match(/\(([^)]+)\)/);
-          if (textMatch) {
-            const decoded = decodeEscapes(textMatch[1]);
-            if (decoded.length > 0) {
-              extractedTexts.push(decoded);
-            }
-          }
+      // Sort items by position (top to bottom, left to right)
+      const items = textContent.items
+        .filter((item): item is { str: string; transform: number[] } => 'str' in item)
+        .map(item => ({
+          text: item.str,
+          x: item.transform[4],
+          y: item.transform[5],
+        }))
+        .sort((a, b) => {
+          // Sort by Y (top to bottom) then X (left to right)
+          const yDiff = b.y - a.y;
+          if (Math.abs(yDiff) > 5) return yDiff;
+          return a.x - b.x;
+        });
+      
+      // Build text with proper line breaks
+      let lastY: number | null = null;
+      let lineText = '';
+      
+      for (const item of items) {
+        if (lastY !== null && Math.abs(item.y - lastY) > 5) {
+          // New line
+          fullText += lineText.trim() + '\n';
+          lineText = '';
         }
+        
+        // Add space between items on same line
+        if (lineText && !lineText.endsWith(' ') && item.text && !item.text.startsWith(' ')) {
+          lineText += ' ';
+        }
+        
+        lineText += item.text;
+        lastY = item.y;
       }
       
-      // Extract text from TJ operator (show text array)
-      const tjArrayMatches = block.match(/\[([^\]]+)\]\s*TJ/g);
-      if (tjArrayMatches) {
-        for (const tjMatch of tjArrayMatches) {
-          const arrayContent = tjMatch.match(/\[([^\]]+)\]/);
-          if (arrayContent) {
-            // Extract strings from the array
-            const strings = arrayContent[1].match(/\(([^)]*)\)/g);
-            if (strings) {
-              for (const str of strings) {
-                const textMatch = str.match(/\(([^)]*)\)/);
-                if (textMatch) {
-                  const decoded = decodeEscapes(textMatch[1]);
-                  if (decoded.length > 0) {
-                    extractedTexts.push(decoded);
-                  }
-                }
-              }
-            }
-          }
-        }
+      // Don't forget the last line
+      if (lineText.trim()) {
+        fullText += lineText.trim() + '\n';
       }
+      
+      fullText += '\n'; // Page break
     }
-    
-    // Method 2: Look for readable text patterns directly
-    // Find strings that look like real text (not PDF commands)
-    const readableTextRegex = /\(([A-Za-z][A-Za-z0-9\s.,;:'"\-!?@#$%&*()+=/]+)\)/g;
-    while ((match = readableTextRegex.exec(content)) !== null) {
-      const text = match[1].trim();
-      if (text.length > 2 && /[a-zA-Z]{2,}/.test(text) && !extractedTexts.includes(text)) {
-        extractedTexts.push(text);
-      }
-    }
-    
-    // Method 3: Extract any sequences of readable characters
-    const sequences = content.match(/[A-Za-z][A-Za-z0-9\s.,;:'"@\-!?#$%&*()+=/]{10,}/g);
-    if (sequences) {
-      for (const seq of sequences) {
-        const cleaned = seq.trim();
-        // Filter out PDF commands and encoding
-        if (
-          cleaned.length > 10 &&
-          !cleaned.match(/^(stream|endstream|obj|endobj|xref|trailer)/i) &&
-          !cleaned.match(/^[0-9\s]+$/) &&
-          /[a-zA-Z]{3,}/.test(cleaned)
-        ) {
-          extractedTexts.push(cleaned);
-        }
-      }
-    }
-    
-    // Combine and clean up extracted text
-    let result = extractedTexts.join(' ');
     
     // Clean up the text
-    result = result
-      .replace(/\s+/g, ' ')
+    fullText = fullText
       .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]+/g, ' ')
       .trim();
     
-    if (result.length < 50) {
-      throw new Error('Could not extract readable text from PDF');
+    console.log('PDF text extracted successfully, length:', fullText.length);
+    
+    if (fullText.length < 50) {
+      throw new Error('Not enough text extracted from PDF');
     }
     
-    return result;
+    return fullText;
     
-  } catch (error) {
-    console.error('PDF parse error:', error);
+  } catch (error: unknown) {
+    console.error('PDF.js parsing failed:', error);
+    
+    // Try fallback method
+    console.log('Trying fallback PDF parsing...');
+    try {
+      const fallbackText = await parsePdfFallback(file);
+      if (fallbackText && fallbackText.length >= 50) {
+        return fallbackText;
+      }
+    } catch (fallbackError) {
+      console.error('Fallback also failed:', fallbackError);
+    }
+    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     throw new Error(
-      'Could not parse PDF file. This can happen with:\n' +
+      `Could not parse PDF file: ${errorMessage}\n\n` +
+      'This can happen with:\n' +
       '• Scanned/image-based PDFs\n' +
       '• Password-protected PDFs\n' +
       '• Complex PDF formatting\n\n' +
       'Try saving your resume as DOCX instead.'
     );
   }
+}
+
+/**
+ * Fallback PDF parser using binary text extraction
+ */
+async function parsePdfFallback(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  
+  // Convert to string
+  let content = '';
+  for (let i = 0; i < bytes.length; i++) {
+    const byte = bytes[i];
+    if (byte >= 32 && byte <= 126) {
+      content += String.fromCharCode(byte);
+    } else if (byte === 10 || byte === 13) {
+      content += '\n';
+    }
+  }
+  
+  const extractedTexts: string[] = [];
+  
+  // Method 1: Extract from BT...ET blocks
+  const btEtRegex = /BT\s*([\s\S]*?)\s*ET/g;
+  let match;
+  
+  while ((match = btEtRegex.exec(content)) !== null) {
+    const block = match[1];
+    
+    // Extract Tj strings
+    const tjMatches = block.match(/\(([^)]+)\)\s*Tj/g);
+    if (tjMatches) {
+      for (const tjMatch of tjMatches) {
+        const textMatch = tjMatch.match(/\(([^)]+)\)/);
+        if (textMatch) {
+          const decoded = decodeEscapes(textMatch[1]);
+          if (decoded.length > 0 && /[a-zA-Z]/.test(decoded)) {
+            extractedTexts.push(decoded);
+          }
+        }
+      }
+    }
+    
+    // Extract TJ arrays
+    const tjArrayMatches = block.match(/\[([^\]]+)\]\s*TJ/gi);
+    if (tjArrayMatches) {
+      for (const tjMatch of tjArrayMatches) {
+        const strings = tjMatch.match(/\(([^)]*)\)/g);
+        if (strings) {
+          for (const str of strings) {
+            const textMatch = str.match(/\(([^)]*)\)/);
+            if (textMatch) {
+              const decoded = decodeEscapes(textMatch[1]);
+              if (decoded.length > 0 && /[a-zA-Z]/.test(decoded)) {
+                extractedTexts.push(decoded);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // Method 2: Look for readable text patterns
+  const readableRegex = /\(([A-Za-z][A-Za-z0-9\s.,;:'"\-!?@#$%&*()+=/]{2,})\)/g;
+  while ((match = readableRegex.exec(content)) !== null) {
+    const text = match[1].trim();
+    if (text.length > 2 && /[a-zA-Z]{2,}/.test(text)) {
+      extractedTexts.push(text);
+    }
+  }
+  
+  // Combine and deduplicate
+  const seen = new Set<string>();
+  const uniqueTexts: string[] = [];
+  for (const text of extractedTexts) {
+    const cleaned = text.trim();
+    if (cleaned && !seen.has(cleaned)) {
+      seen.add(cleaned);
+      uniqueTexts.push(cleaned);
+    }
+  }
+  
+  return uniqueTexts.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 /**
