@@ -23,7 +23,7 @@ export const SPACING_VALUES: Record<SpacingPreset, { section: number; item: numb
   relaxed: { section: 28, item: 12, label: 'Relaxed' },
 };
 
-export const LINE_HEIGHT_OPTIONS = [1.0, 1.1, 1.2, 1.3, 1.4, 1.5] as const;
+export const LINE_HEIGHT_OPTIONS = [1.0, 1.1, 1.15, 1.2, 1.25, 1.3, 1.4, 1.5] as const;
 export type LineHeight = typeof LINE_HEIGHT_OPTIONS[number];
 
 export type ContentWidth = 100 | 95 | 90 | 85 | 80;
