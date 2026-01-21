@@ -121,6 +121,11 @@ export default function ExpertiseSection() {
     );
   }
 
+  // Don't render if content is empty (even if section is visible)
+  if (!forwardDeployedExpertise || !forwardDeployedExpertise.trim()) {
+    return null;
+  }
+
   return (
     <div className="px-8 pb-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection 

@@ -59,6 +59,15 @@ export async function exportToPdf(
     `;
     document.body.appendChild(loadingDiv);
 
+    // Hide no-print elements before capturing
+    const noPrintElements = element.querySelectorAll('.no-print');
+    const originalDisplays: (string | null)[] = [];
+    noPrintElements.forEach((el) => {
+      const htmlEl = el as HTMLElement;
+      originalDisplays.push(htmlEl.style.display);
+      htmlEl.style.display = 'none';
+    });
+
     // OPTIMIZED canvas capture - scale 2 is good quality but smaller file
     const canvas = await html2canvas(element, {
       scale: 2,  // Reduced from 3 - still sharp, much smaller file
@@ -69,6 +78,12 @@ export async function exportToPdf(
       imageTimeout: 0,
       width: element.scrollWidth,
       height: element.scrollHeight,
+    });
+
+    // Restore original display styles
+    noPrintElements.forEach((el, index) => {
+      const htmlEl = el as HTMLElement;
+      htmlEl.style.display = originalDisplays[index] || '';
     });
 
     // Create PDF with COMPRESSION enabled

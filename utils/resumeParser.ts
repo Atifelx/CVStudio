@@ -105,8 +105,10 @@ async function parsePdfFile(file: File): Promise<string> {
       
       // Sort items by position (top to bottom, left to right)
       const items = textContent.items
-        .filter((item): item is { str: string; transform: number[] } => 'str' in item)
-        .map(item => ({
+        .filter((item: any) => {
+          return 'str' in item && typeof item.str === 'string' && 'transform' in item && Array.isArray(item.transform);
+        })
+        .map((item: any) => ({
           text: item.str,
           x: item.transform[4],
           y: item.transform[5],

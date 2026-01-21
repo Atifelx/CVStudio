@@ -27,7 +27,7 @@ type TabType = 'upload' | 'editor';
  * 100% free, no signup, no payment
  */
 
-function EmptyStateEditor({ onUpload }: { onUpload: () => void }) {
+function EmptyStateEditor({ onUpload, onStartFromScratch }: { onUpload: () => void; onStartFromScratch: () => void }) {
   return (
     <section 
       className="min-h-[60vh] flex items-center justify-center p-8"
@@ -54,7 +54,7 @@ function EmptyStateEditor({ onUpload }: { onUpload: () => void }) {
             Upload Resume
           </button>
           <button
-            onClick={() => {}}
+            onClick={onStartFromScratch}
             className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
             aria-label="Create a new resume from scratch"
           >
@@ -67,11 +67,11 @@ function EmptyStateEditor({ onUpload }: { onUpload: () => void }) {
   );
 }
 
-function ResumeEditor({ onSwitchToUpload }: { onSwitchToUpload: () => void }) {
+function ResumeEditor({ onSwitchToUpload, onStartFromScratch }: { onSwitchToUpload: () => void; onStartFromScratch: () => void }) {
   const { hasData, resetResume } = useResume();
 
   if (!hasData) {
-    return <EmptyStateEditor onUpload={onSwitchToUpload} />;
+    return <EmptyStateEditor onUpload={onSwitchToUpload} onStartFromScratch={onStartFromScratch} />;
   }
 
   return (
@@ -337,7 +337,42 @@ function MainContent() {
         {activeTab === 'upload' && <UploadTab onParsed={handleParsedResume} />}
       </div>
       <div id="editor-panel" role="tabpanel" hidden={activeTab !== 'editor'}>
-        {activeTab === 'editor' && <ResumeEditor onSwitchToUpload={() => setActiveTab('upload')} />}
+        {activeTab === 'editor' && (
+          <ResumeEditor 
+            onSwitchToUpload={() => setActiveTab('upload')} 
+            onStartFromScratch={() => {
+              // Initialize blank resume with placeholder and switch to editor
+              setResumeData({
+                header: {
+                  name: 'Your Name',
+                  title: '',
+                  contact: {
+                    email: '',
+                    phone: '',
+                    linkedin: '',
+                    github: '',
+                    location: '',
+                    workAuthorization: '',
+                    relocation: '',
+                    travel: '',
+                  },
+                },
+                summary: '',
+                skills: [],
+                experience: [],
+                education: [],
+                forwardDeployedExpertise: '',
+                sectionVisibility: {
+                  expertise: false,
+                  summary: true,
+                  skills: true,
+                  education: true,
+                },
+              });
+              setActiveTab('editor');
+            }}
+          />
+        )}
       </div>
 
       {/* Footer */}
