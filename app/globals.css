@@ -1,0 +1,321 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   CSS Variables for Resume Layout
+   ========================================================================== */
+
+:root {
+  /* Typography defaults */
+  --resume-font-size: 11px;
+  --resume-line-height: 1.2;
+  
+  /* Vertical spacing defaults (granular) */
+  --resume-section-gap: 20px;
+  --resume-paragraph-gap: 8px;
+  --resume-bullet-gap: 4px;
+  --resume-header-gap: 8px;
+  --resume-experience-gap: 16px;
+  
+  /* Legacy spacing (for compatibility) */
+  --resume-section-spacing: 20px;
+  --resume-item-spacing: 8px;
+  --resume-header-spacing: 8px;
+  
+  /* Page layout defaults - Optimized margins for less text wrapping */
+  --resume-page-margin: 20px;
+  --resume-content-width: 100%;
+  --resume-page-height: 1000px;
+}
+
+/* ==========================================================================
+   Resume Container Styles
+   ========================================================================== */
+
+.resume-container {
+  font-size: var(--resume-font-size);
+  line-height: var(--resume-line-height);
+  max-width: var(--resume-content-width);
+  margin: 0 auto;
+  background: white;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  position: relative;
+}
+
+/* Section spacing */
+.resume-container .resume-section {
+  margin-bottom: var(--resume-section-gap);
+}
+
+.resume-container .resume-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Experience entry spacing */
+.resume-container .experience-entry {
+  margin-bottom: var(--resume-experience-gap);
+}
+
+.resume-container .experience-entry:last-child {
+  margin-bottom: 0;
+}
+
+/* Paragraph spacing */
+.resume-container p {
+  margin-bottom: var(--resume-paragraph-gap);
+}
+
+.resume-container p:last-child {
+  margin-bottom: 0;
+}
+
+/* List spacing */
+.resume-container ul,
+.resume-container ol {
+  margin-bottom: var(--resume-paragraph-gap);
+}
+
+.resume-container li {
+  margin-bottom: var(--resume-bullet-gap);
+}
+
+.resume-container li:last-child {
+  margin-bottom: 0;
+}
+
+/* Header spacing */
+.resume-container h3,
+.resume-container h4 {
+  margin-bottom: var(--resume-header-gap);
+}
+
+/* Section header specific */
+.resume-container .section-header {
+  margin-bottom: var(--resume-header-gap);
+  padding-bottom: calc(var(--resume-header-gap) / 2);
+}
+
+/* ==========================================================================
+   Page Break Indicator Styles
+   ========================================================================== */
+
+.page-break-indicator {
+  position: absolute;
+  left: -20px;
+  right: -20px;
+  height: 0;
+  z-index: 20;
+}
+
+.page-break-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    #ef4444 0px,
+    #ef4444 8px,
+    transparent 8px,
+    transparent 16px
+  );
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+.page-break-label {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  background: #ef4444;
+  color: white;
+  padding: 2px 12px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.page-number-label {
+  position: absolute;
+  transform: translateY(-50%);
+  background: #3b82f6;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================================================
+   Toolbar Styles
+   ========================================================================== */
+
+.toolbar-section {
+  @apply flex flex-col gap-1;
+}
+
+.toolbar-label {
+  @apply text-xs font-medium text-gray-600;
+}
+
+.toolbar-select {
+  @apply px-2 py-1 text-xs border border-gray-300 rounded 
+         bg-white hover:border-gray-400 focus:ring-1 focus:ring-blue-500 
+         focus:border-blue-500 transition-colors cursor-pointer;
+}
+
+.toolbar-slider {
+  @apply w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer
+         accent-blue-600;
+}
+
+.toolbar-slider::-webkit-slider-thumb {
+  @apply appearance-none w-3 h-3 bg-blue-600 rounded-full cursor-pointer
+         hover:bg-blue-700 transition-colors;
+}
+
+.toolbar-slider::-moz-range-thumb {
+  @apply w-3 h-3 bg-blue-600 rounded-full cursor-pointer border-0
+         hover:bg-blue-700 transition-colors;
+}
+
+.toolbar-input {
+  @apply w-16 px-2 py-1 text-xs border border-gray-300 rounded 
+         bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500;
+}
+
+/* ==========================================================================
+   Page Indicator Styles
+   ========================================================================== */
+
+.page-indicator {
+  @apply flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium;
+}
+
+.page-indicator.ok {
+  @apply bg-green-100 text-green-800;
+}
+
+.page-indicator.warning {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.page-indicator.danger {
+  @apply bg-red-100 text-red-800;
+}
+
+/* ==========================================================================
+   Auto-fit Button Styles
+   ========================================================================== */
+
+.fit-button {
+  @apply px-3 py-1.5 text-xs font-medium rounded-md transition-all;
+}
+
+.fit-button.active {
+  @apply bg-blue-600 text-white;
+}
+
+.fit-button:not(.active) {
+  @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+}
+
+/* ==========================================================================
+   Print Styles for PDF Export
+   ========================================================================== */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    background: white !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  .resume-container {
+    box-shadow: none !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* Page break handling - avoid breaking inside elements */
+  .resume-container .experience-entry,
+  .resume-container .education-entry,
+  .resume-container .skill-category {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Keep headers with content */
+  .resume-container h3,
+  .resume-container h4,
+  .resume-container .section-header {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Prevent orphans and widows */
+  .resume-container p,
+  .resume-container li {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Allow breaks between major sections */
+  .resume-container .resume-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  @page {
+    margin: 0.5in;
+  }
+}
+
+/* ==========================================================================
+   Responsive Adjustments
+   ========================================================================== */
+
+@media (max-width: 768px) {
+  .resume-container {
+    font-size: calc(var(--resume-font-size) * 0.95);
+  }
+  
+  .page-break-indicator {
+    left: 0;
+    right: 0;
+  }
+  
+  .page-number-label {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   Smooth Transitions for Live Updates
+   ========================================================================== */
+
+.resume-container {
+  transition: font-size 0.1s ease-out, line-height 0.1s ease-out;
+}
+
+.resume-container .resume-section,
+.resume-container .experience-entry,
+.resume-container p,
+.resume-container li,
+.resume-container h3,
+.resume-container h4 {
+  transition: margin 0.1s ease-out;
+}
