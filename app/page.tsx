@@ -356,6 +356,22 @@ function MainContent() {
           <p className="text-xs text-gray-400 mt-4">
             © {new Date().getFullYear()} CV Studio. Free forever.
           </p>
+          
+          {/* Developer Credit */}
+          <div className="mt-6 pt-4 border-t border-gray-100">
+            <p className="text-xs text-gray-500">
+              Built with ❤️ by{' '}
+              <a
+                href="https://www.linkedin.com/in/atif-shaikh/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 hover:underline font-medium transition-colors"
+                aria-label="Visit developer Atif Shaikh's LinkedIn profile"
+              >
+                Atif Shaikh
+              </a>
+            </p>
+          </div>
         </div>
       </footer>
     </div>
