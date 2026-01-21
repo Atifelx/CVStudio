@@ -92,10 +92,10 @@ function cleanText(text: string): string {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .replace(/\t/g, ' ')
-    .replace(/\u00a0/g, ' ') // Non-breaking space
-    .replace(/[\u2018\u2019]/g, "'") // Smart quotes
+    .replace(/\u00a0/g, ' ')
+    .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201C\u201D]/g, '"')
-    .replace(/[\u2013\u2014]/g, '-') // En/em dash
+    .replace(/[\u2013\u2014]/g, '-')
     .replace(/\s+/g, ' ')
     .replace(/\n\s*\n/g, '\n')
     .split('\n')
@@ -119,7 +119,6 @@ function extractContactInfo(text: string): {
   const linkedins = text.match(PATTERNS.linkedin) || [];
   const githubs = text.match(PATTERNS.github) || [];
   
-  // Try to find location (City, State/Country pattern)
   const locationMatch = text.match(/(?:^|\n|[|•,])\s*([A-Z][a-zA-Z\s]+,\s*[A-Z][a-zA-Z\s]+)(?:\s*[|•,\n]|$)/);
   
   return {
@@ -141,9 +140,7 @@ function findSections(lines: string[]): Map<string, { start: number; end: number
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     
-    // Check if line is a section header
     for (const [type, pattern] of Object.entries(SECTION_PATTERNS)) {
-      // Section headers are usually short and may be all caps
       if (line.length < 50 && (pattern.test(line) || (line === line.toUpperCase() && pattern.test(line.toLowerCase())))) {
         sectionOrder.push({ type, start: i });
         break;
@@ -151,7 +148,6 @@ function findSections(lines: string[]): Map<string, { start: number; end: number
     }
   }
   
-  // Set end boundaries
   for (let i = 0; i < sectionOrder.length; i++) {
     const current = sectionOrder[i];
     const next = sectionOrder[i + 1];
@@ -172,7 +168,6 @@ function extractHeader(
   sections: Map<string, { start: number; end: number }>,
   contactInfo: { email: string; phone: string }
 ): { name: string; title: string } {
-  // Header is typically the first few lines before any section
   let firstSectionStart = lines.length;
   sections.forEach((bounds) => {
     if (bounds.start < firstSectionStart) {
@@ -188,20 +183,16 @@ function extractHeader(
   for (const line of headerLines) {
     const trimmed = line.trim();
     
-    // Skip lines that are clearly contact info
     if (PATTERNS.email.test(trimmed) || PATTERNS.phone.test(trimmed) || 
         PATTERNS.linkedin.test(trimmed) || PATTERNS.github.test(trimmed)) {
       continue;
     }
     
-    // Skip very short lines or lines with just symbols
     if (trimmed.length < 3 || /^[•\-|,\s]+$/.test(trimmed)) {
       continue;
     }
     
-    // First substantial line is likely the name
     if (!name) {
-      // Check if it looks like a name (2-4 words, mostly letters)
       const words = trimmed.split(/\s+/);
       if (words.length >= 1 && words.length <= 5 && /^[A-Za-z\s.\-']+$/.test(trimmed)) {
         name = trimmed;
@@ -209,9 +200,7 @@ function extractHeader(
       }
     }
     
-    // Second substantial line is likely the title
     if (name && !title && trimmed.length > 5 && trimmed.length < 150) {
-      // Skip if it contains contact patterns
       if (!trimmed.includes('@') && !PATTERNS.phone.test(trimmed)) {
         title = trimmed;
         break;
@@ -233,7 +222,6 @@ function extractSectionContent(
   const bounds = sections.get(sectionType);
   if (!bounds) return '';
   
-  // Skip the header line itself
   const contentLines = lines.slice(bounds.start + 1, bounds.end + 1);
   return contentLines.join('\n');
 }
@@ -255,10 +243,8 @@ function parseExperience(text: string): ExperienceItem[] {
     const line = lines[i].trim();
     if (!line) continue;
     
-    // Check if this line contains a date range (indicates new job)
     const dateMatch = line.match(PATTERNS.dateRange);
     
-    // Check if this looks like a new job entry
     const isNewEntry = dateMatch || (
       line.length < 100 && 
       !line.startsWith('•') && 
@@ -268,7 +254,6 @@ function parseExperience(text: string): ExperienceItem[] {
     );
     
     if (isNewEntry && (dateMatch || lineBuffer.length >= 2)) {
-      // Save previous experience
       if (currentExp && (currentExp.role || currentExp.company)) {
         currentExp.bullets = bullets.filter(b => b.length > 5);
         experiences.push({
@@ -281,12 +266,10 @@ function parseExperience(text: string): ExperienceItem[] {
         });
       }
       
-      // Start new experience
       let role = '';
       let company = '';
       let period = dateMatch ? dateMatch[0] : '';
       
-      // Process buffered lines + current line
       const processLines = [...lineBuffer, line];
       lineBuffer = [];
       
@@ -301,7 +284,6 @@ function parseExperience(text: string): ExperienceItem[] {
         }
       }
       
-      // Extract period from current line if present
       if (dateMatch) {
         period = dateMatch[0];
       }
@@ -309,25 +291,21 @@ function parseExperience(text: string): ExperienceItem[] {
       currentExp = { role, company, period, description: '' };
       bullets = [];
     } else if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) {
-      // This is a bullet point
       const bulletText = line.replace(/^[•\-*]\s*/, '').trim();
       if (bulletText.length > 5) {
         bullets.push(bulletText);
       }
     } else if (currentExp) {
-      // Could be additional info or continuation
       if (!currentExp.company && line.length < 80) {
         currentExp.company = line;
       } else if (line.length > 20) {
         bullets.push(line);
       }
     } else {
-      // Buffer lines until we find a date or clear structure
       lineBuffer.push(line);
     }
   }
   
-  // Save last experience
   if (currentExp && (currentExp.role || currentExp.company)) {
     currentExp.bullets = bullets.filter(b => b.length > 5);
     experiences.push({
@@ -357,9 +335,7 @@ function parseEducation(text: string): EducationItem[] {
   for (const line of lines) {
     const trimmed = line.trim();
     
-    // Check if this line contains a degree
     if (PATTERNS.degree.test(trimmed) || (trimmed.length < 100 && !currentEdu)) {
-      // Save previous education
       if (currentEdu && currentEdu.degree) {
         education.push({
           id: `edu-${education.length + 1}`,
@@ -379,7 +355,6 @@ function parseEducation(text: string): EducationItem[] {
     }
   }
   
-  // Save last education
   if (currentEdu && currentEdu.degree) {
     education.push({
       id: `edu-${education.length + 1}`,
@@ -404,7 +379,6 @@ function parseSkills(text: string): SkillCategory[] {
   for (const line of lines) {
     const trimmed = line.trim();
     
-    // Check for "Category: skills" pattern
     const categoryMatch = trimmed.match(/^([^:]+):\s*(.+)$/);
     
     if (categoryMatch && categoryMatch[2].length > 3) {
@@ -414,7 +388,6 @@ function parseSkills(text: string): SkillCategory[] {
         skills: categoryMatch[2].trim(),
       });
     } else if (trimmed.length > 5 && !trimmed.startsWith('•') && !trimmed.startsWith('-')) {
-      // Could be a skill line without category
       skills.push({
         id: `skill-${skills.length + 1}`,
         category: 'Technical Skills',
@@ -423,7 +396,6 @@ function parseSkills(text: string): SkillCategory[] {
     }
   }
   
-  // Consolidate duplicate categories
   const consolidated = new Map<string, string[]>();
   for (const skill of skills) {
     const existing = consolidated.get(skill.category) || [];
@@ -459,21 +431,26 @@ export async function parseDocxFile(file: File): Promise<string> {
 }
 
 /**
- * Parse PDF file using pdf.js
+ * Parse PDF file using pdf.js with legacy build (no worker required)
  */
 export async function parsePdfFile(file: File): Promise<string> {
   try {
-    // Dynamic import of pdfjs-dist
-    const pdfjsLib = await import('pdfjs-dist');
+    // Use dynamic import with legacy build
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
     
-    // Set worker source
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 
-      `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+    // Set up fake worker for legacy build
+    pdfjs.GlobalWorkerOptions.workerSrc = '';
     
     const arrayBuffer = await file.arrayBuffer();
     
-    // Load the PDF document
-    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    // Load PDF with disableWorker option
+    const loadingTask = pdfjs.getDocument({
+      data: arrayBuffer,
+      useWorkerFetch: false,
+      isEvalSupported: false,
+      useSystemFonts: true,
+    });
+    
     const pdf = await loadingTask.promise;
     
     let fullText = '';
@@ -483,49 +460,123 @@ export async function parsePdfFile(file: File): Promise<string> {
       const page = await pdf.getPage(pageNum);
       const textContent = await page.getTextContent();
       
-      // Combine text items with proper spacing
-      let lastY = 0;
+      // Build text with proper spacing
+      let lastY: number | null = null;
       let pageText = '';
       
       for (const item of textContent.items) {
-        if ('str' in item) {
-          const textItem = item as { str: string; transform: number[] };
-          const currentY = textItem.transform[5];
+        if ('str' in item && typeof item.str === 'string') {
+          const str = item.str;
+          // @ts-ignore - transform exists on TextItem
+          const y = item.transform ? item.transform[5] : 0;
           
-          // Add newline if Y position changed significantly (new line)
-          if (lastY !== 0 && Math.abs(currentY - lastY) > 5) {
+          // New line if Y position changed significantly
+          if (lastY !== null && Math.abs(y - lastY) > 8) {
             pageText += '\n';
-          } else if (pageText && !pageText.endsWith(' ') && !pageText.endsWith('\n')) {
+          } else if (pageText.length > 0 && !pageText.endsWith(' ') && !pageText.endsWith('\n') && str.length > 0) {
             pageText += ' ';
           }
           
-          pageText += textItem.str;
-          lastY = currentY;
+          pageText += str;
+          lastY = y;
         }
       }
       
       fullText += pageText + '\n\n';
     }
     
-    if (!fullText || fullText.trim().length < 20) {
-      throw new Error('Could not extract text from PDF. The file may be image-based or protected.');
+    // Clean up the text
+    fullText = fullText
+      .replace(/\s+/g, ' ')
+      .replace(/\n\s+/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    
+    if (!fullText || fullText.length < 50) {
+      throw new Error('No text extracted');
     }
+    
+    console.log('PDF text extracted:', fullText.substring(0, 500) + '...');
     
     return fullText;
   } catch (error) {
     console.error('PDF parsing error:', error);
     
-    // Provide helpful error message
-    if (error instanceof Error && error.message.includes('extract')) {
-      throw error;
+    // Try alternative extraction method
+    try {
+      return await extractPdfTextFallback(file);
+    } catch (fallbackError) {
+      console.error('Fallback PDF parsing also failed:', fallbackError);
+      throw new Error(
+        'Failed to parse PDF. Please try:\n' +
+        '• Converting to DOCX format (recommended)\n' +
+        '• Using a different PDF file\n' +
+        '• Making sure the PDF contains selectable text'
+      );
     }
-    
-    throw new Error(
-      'Failed to parse PDF. This might be because:\n' +
-      '• The PDF is image-based (scanned document)\n' +
-      '• The PDF is password protected\n' +
-      '• The file is corrupted\n\n' +
-      'Try converting to DOCX or use a text-based PDF.'
-    );
   }
+}
+
+/**
+ * Fallback PDF text extraction using basic binary parsing
+ */
+async function extractPdfTextFallback(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  
+  // Convert to string
+  let content = '';
+  for (let i = 0; i < bytes.length; i++) {
+    content += String.fromCharCode(bytes[i]);
+  }
+  
+  // Extract text from PDF streams
+  const texts: string[] = [];
+  
+  // Look for text in BT...ET blocks (text objects)
+  const btEtRegex = /BT\s*([\s\S]*?)\s*ET/g;
+  let match;
+  
+  while ((match = btEtRegex.exec(content)) !== null) {
+    const block = match[1];
+    
+    // Extract text from Tj and TJ operators
+    const tjRegex = /\(([^)]*)\)\s*Tj|<([^>]*)>\s*Tj|\[([^\]]*)\]\s*TJ/g;
+    let tjMatch;
+    
+    while ((tjMatch = tjRegex.exec(block)) !== null) {
+      const text = tjMatch[1] || tjMatch[2] || tjMatch[3] || '';
+      if (text) {
+        // Decode the text
+        const decoded = text
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '')
+          .replace(/\\t/g, ' ')
+          .replace(/\\\(/g, '(')
+          .replace(/\\\)/g, ')')
+          .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
+        
+        if (decoded.length > 0 && /[a-zA-Z]/.test(decoded)) {
+          texts.push(decoded);
+        }
+      }
+    }
+  }
+  
+  // Also try to find plain text patterns
+  const plainTextRegex = /\(([A-Za-z][A-Za-z0-9\s.,;:'"!?@#$%&*()-]+)\)/g;
+  while ((match = plainTextRegex.exec(content)) !== null) {
+    const text = match[1].trim();
+    if (text.length > 3 && /[a-zA-Z]{2,}/.test(text)) {
+      texts.push(text);
+    }
+  }
+  
+  const result = texts.join(' ').trim();
+  
+  if (result.length < 50) {
+    throw new Error('Could not extract sufficient text');
+  }
+  
+  return result;
 }
