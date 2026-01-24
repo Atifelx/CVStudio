@@ -539,6 +539,78 @@ function parseExperience(text: string): ExperienceItem[] {
   
   let currentExp: Partial<ExperienceItem> | null = null;
   let bullets: string[] = [];
+  let pendingHeader: { role: string; company: string } | null = null;
+  let pendingProjectTitle: string | null = null;
+  let pendingProjectBody: string[] = [];
+
+  const flushCurrent = () => {
+    if (currentExp && (currentExp.role || currentExp.company)) {
+      // Flush pending project aggregation
+      if (pendingProjectTitle && pendingProjectBody.length > 0) {
+        const body = pendingProjectBody.join(' ').replace(/[ ]+/g, ' ').trim();
+        if (body) bullets.push(`${pendingProjectTitle} — ${body}`);
+      } else if (pendingProjectTitle) {
+        bullets.push(pendingProjectTitle);
+      }
+      pendingProjectTitle = null;
+      pendingProjectBody = [];
+
+      currentExp.bullets = bullets
+        .map((b) => b.trim())
+        .filter((b) => b.length > 5);
+
+      experiences.push({
+        id: `exp-${experiences.length + 1}`,
+        role: currentExp.role || '',
+        company: currentExp.company || '',
+        period: currentExp.period || '',
+        description: '',
+        bullets: currentExp.bullets || [],
+      });
+    }
+  };
+
+  const parseRoleCompanyLine = (line: string): { role: string; company: string } | null => {
+    const cleaned = line.trim();
+    if (!cleaned) return null;
+
+    // Common formats:
+    // - "Software Engineer – Platform Automation | Sherweb"
+    // - "Product Engineer | WriteBookAI"
+    // - "Software Engineer - Company" (less reliable)
+    if (cleaned.includes('|')) {
+      const parts = cleaned.split('|').map((p) => p.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        const left = parts[0];
+        const company = parts.slice(1).join(' | ');
+        // If left contains an en-dash/em-dash separating role specialization, keep as role
+        const role = left.replace(/[ ]+/g, ' ').trim();
+        return { role, company };
+      }
+    }
+
+    // "Role – Company" or "Role - Company"
+    const dashMatch = cleaned.match(/^(.+?)\s*(?:–|—|-)\s*(.+)$/);
+    if (dashMatch) {
+      const role = dashMatch[1].trim();
+      const company = dashMatch[2].trim();
+      // Avoid treating long paragraph lines as headers
+      if (role.length <= 80 && company.length <= 80) return { role, company };
+    }
+
+    return null;
+  };
+
+  const isLikelyProjectHeading = (line: string): boolean => {
+    const l = line.trim();
+    if (!l) return false;
+    if (l.length < 6 || l.length > 90) return false;
+    if (PATTERNS.dateRange.test(l)) return false;
+    // headings often have parentheses or colon, or Title Case-ish words
+    const hasSignal = /client|system|automation|chatbot|routing|monitoring|pipeline|integration|optimization/i.test(l) || /:|\(|\)/.test(l);
+    const tooSentenceLike = /[.?!]$/.test(l);
+    return hasSignal && !tooSentenceLike;
+  };
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -550,20 +622,23 @@ function parseExperience(text: string): ExperienceItem[] {
     // Detect new experience entry
     const isBullet = line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || line.startsWith('●');
     const isNewEntry = dateMatch && !isBullet;
+
+    // If we have a pending header and this line is the date line, start a new entry
+    if (pendingHeader && isNewEntry) {
+      flushCurrent();
+      bullets = [];
+      currentExp = {
+        role: pendingHeader.role,
+        company: pendingHeader.company,
+        period: dateMatch ? dateMatch[0] : '',
+      };
+      pendingHeader = null;
+      continue;
+    }
     
     if (isNewEntry) {
       // Save previous entry
-      if (currentExp && (currentExp.role || currentExp.company)) {
-        currentExp.bullets = bullets.filter(b => b.length > 5);
-        experiences.push({
-          id: `exp-${experiences.length + 1}`,
-          role: currentExp.role || '',
-          company: currentExp.company || '',
-          period: currentExp.period || '',
-          description: '',
-          bullets: currentExp.bullets || [],
-        });
-      }
+      flushCurrent();
       
       // Parse the new entry
       const period = dateMatch[0];
@@ -573,54 +648,91 @@ function parseExperience(text: string): ExperienceItem[] {
       let role = '';
       let company = '';
       
-      if (beforeDate.includes('|')) {
-        const parts = beforeDate.split('|').map(p => p.trim());
-        role = parts[0] || '';
-        company = parts[1] || '';
+      const parsed = parseRoleCompanyLine(beforeDate);
+      if (parsed) {
+        role = parsed.role;
+        company = parsed.company;
       } else if (beforeDate.includes(' at ')) {
         const parts = beforeDate.split(' at ').map(p => p.trim());
         role = parts[0] || '';
-        company = parts[1] || '';
-      } else if (beforeDate.includes(' - ')) {
-        const parts = beforeDate.split(' - ').map(p => p.trim());
-        role = parts[0] || '';
-        company = parts[1] || '';
+        company = parts.slice(1).join(' at ') || '';
       } else {
         role = beforeDate;
       }
       
       currentExp = { role, company, period };
       bullets = [];
+      pendingProjectTitle = null;
+      pendingProjectBody = [];
       
     } else if (isBullet) {
+      // Flush any pending project heading/body before adding a bullet
+      if (pendingProjectTitle) {
+        const body = pendingProjectBody.join(' ').replace(/[ ]+/g, ' ').trim();
+        if (body) bullets.push(`${pendingProjectTitle} — ${body}`);
+        else bullets.push(pendingProjectTitle);
+        pendingProjectTitle = null;
+        pendingProjectBody = [];
+      }
+
       // It's a bullet point
       const bulletText = line.replace(/^[•\-*●]\s*/, '').trim();
       if (bulletText.length > 5) {
         bullets.push(bulletText);
       }
       
-    } else if (currentExp && !currentExp.company && line.length < 80) {
-      // Might be the company name on a separate line
-      currentExp.company = line;
+    } else {
+      // Not a bullet and not a date line.
+      // 1) Detect job header lines and wait for the date line on the next line.
+      const headerCandidate = parseRoleCompanyLine(line);
+      if (!currentExp && headerCandidate) {
+        // We'll confirm this is a job header if the next non-empty line is a date range.
+        const next = lines[i + 1]?.trim() || '';
+        if (next && PATTERNS.dateRange.test(next)) {
+          pendingHeader = headerCandidate;
+          continue;
+        }
+      }
+
+      // 2) If already inside a job, treat short headings as project titles and
+      //    fold subsequent paragraphs into one bullet for that project.
+      if (currentExp && isLikelyProjectHeading(line)) {
+        // Flush previous project if any
+        if (pendingProjectTitle) {
+          const body = pendingProjectBody.join(' ').replace(/[ ]+/g, ' ').trim();
+          if (body) bullets.push(`${pendingProjectTitle} — ${body}`);
+          else bullets.push(pendingProjectTitle);
+        }
+        pendingProjectTitle = line;
+        pendingProjectBody = [];
+        continue;
+      }
+
+      // 3) If we have a pending project title, collect body lines
+      if (currentExp && pendingProjectTitle) {
+        // Stop collecting if we hit a new short heading (project) or a date
+        if (!PATTERNS.dateRange.test(line)) {
+          pendingProjectBody.push(line);
+          continue;
+        }
+      }
+
+      // 4) Fallback: company on separate line if role is set and company is empty
+      if (currentExp && !currentExp.company && line.length < 80) {
+        currentExp.company = line;
+        continue;
+      }
+
+      // 5) Long line without date - treat as bullet/achievement text
+      if (line.length > 20 && !PATTERNS.dateRange.test(line)) {
+        bullets.push(line);
+      }
       
-    } else if (line.length > 20 && !line.match(PATTERNS.dateRange)) {
-      // Long line without date - treat as bullet
-      bullets.push(line);
     }
   }
   
   // Don't forget the last entry
-  if (currentExp && (currentExp.role || currentExp.company)) {
-    currentExp.bullets = bullets.filter(b => b.length > 5);
-    experiences.push({
-      id: `exp-${experiences.length + 1}`,
-      role: currentExp.role || '',
-      company: currentExp.company || '',
-      period: currentExp.period || '',
-      description: '',
-      bullets: currentExp.bullets || [],
-    });
-  }
+  flushCurrent();
   
   return experiences;
 }
