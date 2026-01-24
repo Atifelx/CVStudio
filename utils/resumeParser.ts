@@ -353,7 +353,21 @@ export function parseResumeText(text: string): Partial<ResumeData> {
  * Clean and normalize text
  */
 function cleanText(text: string): string {
-  return text
+  // Normalize common Markdown formatting (paste-text resumes often include markdown)
+  const normalized = text
+    // Convert markdown links: [Text](url) -> Text url
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 $2')
+    // Remove bold/italic markers
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    // Remove inline code backticks
+    .replace(/`([^`]+)`/g, '$1')
+    // Remove horizontal rules like --- or ***
+    .replace(/^\s*([-*_])\1{2,}\s*$/gm, '')
+    // Remove common emoji/icons used in contact lines (keep the actual text)
+    .replace(/[📧📩📨📱☎️📞🔗]/g, ' ');
+
+  return normalized
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .replace(/\t/g, ' ')
@@ -363,7 +377,16 @@ function cleanText(text: string): string {
     .replace(/[\u2013\u2014]/g, '-')
     .replace(/[ ]+/g, ' ')
     .split('\n')
-    .map(line => line.trim())
+    .map((line) => {
+      let l = line.trim();
+      // Strip markdown heading markers: ### TITLE -> TITLE
+      l = l.replace(/^\s{0,3}#{1,6}\s+/g, '');
+      // Strip blockquote marker
+      l = l.replace(/^>\s+/g, '');
+      // Strip list markers (-, *, •) but keep content
+      l = l.replace(/^[-*•]\s+/g, '');
+      return l.trim();
+    })
     .filter(line => line.length > 0)
     .join('\n');
 }
