@@ -532,14 +532,7 @@ function extractSectionContent(
 }
 
 /**
- * Parse experience section - DATE-DRIVEN ANCHORING with duplicate prevention
- * 
- * Rules:
- * 1. Dates are primary anchors - when found, look ABOVE and BELOW for company/title
- * 2. Each (company + title + date) is ONE atomic block
- * 3. Check for duplicates before creating new entry
- * 4. Preserve ALL bullets exactly as they appear
- * 5. Stop at section boundaries (Education, Skills, etc.)
+ * Parse experience section into structured data
  */
 function parseExperience(text: string): ExperienceItem[] {
   if (!text.trim()) return [];
@@ -547,389 +540,89 @@ function parseExperience(text: string): ExperienceItem[] {
   const experiences: ExperienceItem[] = [];
   const lines = text.split('\n').filter(l => l.trim());
   
-  // Track seen entries to prevent duplicates: key = "company|title|date"
-  const seenKeys = new Set<string>();
+  let currentExp: Partial<ExperienceItem> | null = null;
+  let bullets: string[] = [];
   
-  // Section boundary patterns - stop parsing when we hit these
-  const sectionBoundaryPattern = /^(education|skills|projects?|certifications?|awards|publications?|languages?|references?|summary|profile|objective)$/i;
-  
-  /**
-   * Create unique key for duplicate detection
-   */
-  const createKey = (company: string, role: string, period: string): string => {
-    return `${(company || '').toLowerCase().trim()}|${(role || '').toLowerCase().trim()}|${(period || '').toLowerCase().trim()}`;
-  };
-  
-  /**
-   * Parse role and company from a line
-   * Supports: "Role | Company", "Role – Company", "Role at Company"
-   */
-  const parseRoleCompany = (line: string): { role: string; company: string } | null => {
-    const cleaned = line.trim();
-    if (!cleaned || cleaned.length > 150) return null;
-
-    // Format 1: "Role | Company" or "Role | Company | Extra"
-    if (cleaned.includes('|')) {
-      const parts = cleaned.split('|').map((p) => p.trim()).filter(Boolean);
-      if (parts.length >= 2) {
-        const role = parts[0].trim();
-        const company = parts[1].trim();
-        if (role.length >= 3 && role.length <= 100 && company.length >= 2 && company.length <= 80) {
-          return { role, company };
-        }
-      }
-    }
-
-    // Format 2: "Role – Company" or "Role - Company" or "Role — Company"
-    const dashMatch = cleaned.match(/^(.+?)\s*(?:–|—|-)\s*(.+)$/);
-    if (dashMatch) {
-      const role = dashMatch[1].trim();
-      const company = dashMatch[2].trim();
-      if (role.length >= 3 && role.length <= 100 && company.length >= 2 && company.length <= 80) {
-        return { role, company };
-      }
-    }
-
-    // Format 3: "Role at Company"
-    if (cleaned.toLowerCase().includes(' at ')) {
-      const parts = cleaned.split(/\s+at\s+/i).map(p => p.trim());
-      if (parts.length >= 2) {
-        const role = parts[0];
-        const company = parts.slice(1).join(' at ').trim();
-        if (role.length >= 3 && role.length <= 100 && company.length >= 2 && company.length <= 80) {
-          return { role, company };
-        }
-      }
-    }
-
-    return null;
-  };
-  
-  /**
-   * Extract date range from a line - improved to handle all formats including spacing variations
-   */
-  const extractDate = (line: string): string | null => {
-    if (!line) return null;
-    
-    // Try the main pattern first
-    let match = line.match(PATTERNS.dateRange);
-    if (match) {
-      let dateStr = match[0].trim();
-      // Normalize spacing: "Jan 2020– Sep 2021" -> "Jan 2020 – Sep 2021"
-      dateStr = dateStr.replace(/(\d{4}|[a-z]+\s+\d{4})\s*([–—\-])\s*([a-z]+\s+\d{4}|present|current|now|ongoing|\d{4})/gi, (m, start, dash, end) => {
-        return `${start.trim()} – ${end.trim()}`;
-      });
-      return dateStr;
-    }
-    
-    // Fallback: try to match dates with no space after dash (e.g., "Jan 2020– Sep 2021")
-    // Pattern: start date (year or month year) + dash (with optional space) + end date
-    const noSpacePattern = /(\d{4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4})\s*([–—\-])\s*((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4}|present|current|now|ongoing|\d{4})/gi;
-    const noSpaceMatch = line.match(noSpacePattern);
-    if (noSpaceMatch) {
-      let dateStr = noSpaceMatch[0].trim();
-      // Normalize spacing
-      dateStr = dateStr.replace(/(\d{4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4})\s*([–—\-])\s*((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4}|present|current|now|ongoing|\d{4})/gi, (m, start, dash, end) => {
-        return `${start.trim()} – ${end.trim()}`;
-      });
-      return dateStr;
-    }
-    
-    // Additional fallback: year-to-year format "2013 – 2019"
-    const yearYearMatch = line.match(/(\d{4})\s*[-–—]+\s*(\d{4})/);
-    if (yearYearMatch) {
-      return `${yearYearMatch[1]} – ${yearYearMatch[2]}`;
-    }
-    
-    return null;
-  };
-  
-  /**
-   * Check if line is a bullet point - improved to catch all formats
-   */
-  const isBullet = (line: string): boolean => {
-    const trimmed = line.trim();
-    // Match: •, -, *, ●, or numbered (1. 2) 3) etc)
-    return /^[•\-*●]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
-  };
-  
-  /**
-   * Extract bullet text (remove marker)
-   */
-  const extractBulletText = (line: string): string => {
-    return line.replace(/^[•\-*●]\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
-  };
-  
-  /**
-   * Check if line looks like a role/company header (not a bullet, not a date, reasonable length)
-   */
-  const isLikelyHeader = (line: string): boolean => {
-    if (!line || line.length < 5 || line.length > 150) return false;
-    if (isBullet(line)) return false;
-    if (extractDate(line)) return false;
-    if (sectionBoundaryPattern.test(line)) return false;
-    // If it contains separators like | or –, likely a header
-    if (line.includes('|') || line.includes('–') || line.includes(' - ')) return true;
-    // If it's short and doesn't look like a sentence, might be a header
-    if (line.length < 80 && !/[.!?]$/.test(line)) return true;
-    return false;
-  };
-  
-  // HYBRID PARSING: Process headers and dates together
-  // Track which lines we've processed
-  const processedLines = new Set<number>();
-  
-  let i = 0;
-  while (i < lines.length) {
-    if (processedLines.has(i)) {
-      i++;
-      continue;
-    }
-    
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (!line) {
-      i++;
-      continue;
-    }
+    if (!line) continue;
     
-    // Skip bullets - they'll be collected when we find their entry
-    if (isBullet(line)) {
-      i++;
-      continue;
-    }
+    // Check if this line contains a date range
+    const dateMatch = line.match(PATTERNS.dateRange);
     
-    // Try to find a header (role/company line)
-    const parsed = parseRoleCompany(line);
-    let role = '';
-    let company = '';
-    let headerIdx = -1;
+    // Detect new experience entry
+    const isBullet = line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || line.startsWith('●');
+    const isNewEntry = dateMatch && !isBullet;
     
-    if (parsed) {
-      role = parsed.role;
-      company = parsed.company;
-      headerIdx = i;
-      processedLines.add(i);
-    } else if (isLikelyHeader(line) && line.length > 5 && line.length < 150) {
-      // Fallback: treat as role if it looks like a header
-      role = line;
-      headerIdx = i;
-      processedLines.add(i);
-    }
-    
-    // If we found a header, look for its date (next 1-3 lines)
-    if (headerIdx >= 0) {
-      let dateRange = '';
-      let dateIdx = -1;
-      
-      // Look ahead for date
-      for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
-        if (processedLines.has(j)) break;
-        
-        const nextLine = lines[j]?.trim() || '';
-        if (!nextLine) continue;
-        
-        const date = extractDate(nextLine);
-        if (date) {
-          dateRange = date;
-          dateIdx = j;
-          processedLines.add(j);
-          break;
-        }
-        
-        // If we hit another header or bullet, stop looking
-        if (parseRoleCompany(nextLine) || isLikelyHeader(nextLine) || isBullet(nextLine)) {
-          break;
-        }
+    if (isNewEntry) {
+      // Save previous entry
+      if (currentExp && (currentExp.role || currentExp.company)) {
+        currentExp.bullets = bullets.filter(b => b.length > 5);
+        experiences.push({
+          id: `exp-${experiences.length + 1}`,
+          role: currentExp.role || '',
+          company: currentExp.company || '',
+          period: currentExp.period || '',
+          description: '',
+          bullets: currentExp.bullets || [],
+        });
       }
       
-      // Also check if header line itself contains date
-      if (!dateRange) {
-        const date = extractDate(line);
-        if (date) {
-          dateRange = date;
-          dateIdx = headerIdx;
-        }
+      // Parse the new entry
+      const period = dateMatch[0];
+      const beforeDate = line.substring(0, line.indexOf(dateMatch[0])).trim();
+      
+      // Try to split role and company
+      let role = '';
+      let company = '';
+      
+      if (beforeDate.includes('|')) {
+        const parts = beforeDate.split('|').map(p => p.trim());
+        role = parts[0] || '';
+        company = parts[1] || '';
+      } else if (beforeDate.includes(' at ')) {
+        const parts = beforeDate.split(' at ').map(p => p.trim());
+        role = parts[0] || '';
+        company = parts[1] || '';
+      } else if (beforeDate.includes(' - ')) {
+        const parts = beforeDate.split(' - ').map(p => p.trim());
+        role = parts[0] || '';
+        company = parts[1] || '';
+      } else {
+        role = beforeDate;
       }
       
-      // If we have a date (or at least a header), create entry
-      if (dateRange || role || company) {
-        // Check for duplicate
-        const key = createKey(company, role, dateRange);
-        if (seenKeys.has(key)) {
-          // Duplicate - append bullets to existing
-          const existing = experiences.find(e => 
-            createKey(e.company, e.role, e.period) === key
-          );
-          if (existing) {
-            // Collect bullets after date (or after header if no date)
-            const startIdx = dateIdx >= 0 ? dateIdx + 1 : headerIdx + 1;
-            for (let j = startIdx; j < lines.length; j++) {
-              if (processedLines.has(j)) break;
-              
-              const nextLine = lines[j]?.trim() || '';
-              if (!nextLine) {
-                processedLines.add(j);
-                continue;
-              }
-              
-              // Stop at next header or date
-              if (parseRoleCompany(nextLine) || isLikelyHeader(nextLine)) break;
-              const nextDate = extractDate(nextLine);
-              if (nextDate && !isBullet(nextLine)) break;
-              
-              // Collect bullets
-              if (isBullet(nextLine)) {
-                const bulletText = extractBulletText(nextLine);
-                if (bulletText.length > 0) {
-                  existing.bullets.push(bulletText);
-                }
-              } else if (nextLine.length > 5 && !extractDate(nextLine)) {
-                existing.bullets.push(nextLine);
-              }
-              
-              processedLines.add(j);
-            }
-          }
-          i = dateIdx >= 0 ? dateIdx + 1 : headerIdx + 1;
-          continue;
-        }
-        
-        // Not a duplicate - create new entry
-        seenKeys.add(key);
-        const bullets: string[] = [];
-        
-        // Collect bullets after date (or after header if no date)
-        const startIdx = dateIdx >= 0 ? dateIdx + 1 : headerIdx + 1;
-        for (let j = startIdx; j < lines.length; j++) {
-          if (processedLines.has(j)) break;
-          
-          const nextLine = lines[j]?.trim() || '';
-          if (!nextLine) {
-            processedLines.add(j);
-            continue;
-          }
-          
-          // Stop at next header or date (new entry)
-          if (parseRoleCompany(nextLine) || isLikelyHeader(nextLine)) break;
-          const nextDate = extractDate(nextLine);
-          if (nextDate && !isBullet(nextLine)) {
-            // Check if previous line is a header
-            if (j > 0) {
-              const prevLine = lines[j - 1]?.trim() || '';
-              if (parseRoleCompany(prevLine) || isLikelyHeader(prevLine)) {
-                break; // New entry
-              }
-            }
-            break; // New entry
-          }
-          
-          // Collect bullets
-          if (isBullet(nextLine)) {
-            const bulletText = extractBulletText(nextLine);
-            if (bulletText.length > 0) {
-              bullets.push(bulletText);
-            }
-          } else if (nextLine.length > 5 && !extractDate(nextLine)) {
-            bullets.push(nextLine);
-          }
-          
-          processedLines.add(j);
-        }
-        
-        // Create entry
-        if (role || company || dateRange) {
-          experiences.push({
-            id: `exp-${experiences.length + 1}`,
-            role: role || 'Unknown Role',
-            company: company || 'Unknown Company',
-            period: dateRange || '',
-            description: '',
-            bullets: bullets,
-          });
-        }
-        
-        i = dateIdx >= 0 ? dateIdx + 1 : headerIdx + 1;
-        continue;
+      currentExp = { role, company, period };
+      bullets = [];
+      
+    } else if (isBullet) {
+      // It's a bullet point
+      const bulletText = line.replace(/^[•\-*●]\s*/, '').trim();
+      if (bulletText.length > 5) {
+        bullets.push(bulletText);
       }
+      
+    } else if (currentExp && !currentExp.company && line.length < 80) {
+      // Might be the company name on a separate line
+      currentExp.company = line;
+      
+    } else if (line.length > 20 && !line.match(PATTERNS.dateRange)) {
+      // Long line without date - treat as bullet
+      bullets.push(line);
     }
-    
-    // No header found on this line - check if it's a standalone date
-    const dateRange = extractDate(line);
-    if (dateRange) {
-      // Standalone date - look back for header
-      let foundRole = '';
-      let foundCompany = '';
-      
-      for (let lookback = 1; lookback <= 5 && i - lookback >= 0; lookback++) {
-        const prevIdx = i - lookback;
-        if (processedLines.has(prevIdx)) break;
-        
-        const prevLine = lines[prevIdx]?.trim() || '';
-        if (!prevLine) continue;
-        
-        if (extractDate(prevLine)) break; // Hit another date
-        
-        const parsed = parseRoleCompany(prevLine);
-        if (parsed) {
-          foundRole = parsed.role;
-          foundCompany = parsed.company;
-          // Mark header and lines between as processed
-          for (let k = prevIdx; k < i; k++) {
-            processedLines.add(k);
-          }
-          break;
-        }
-      }
-      
-      if (foundRole || foundCompany) {
-        const key = createKey(foundCompany, foundRole, dateRange);
-        if (!seenKeys.has(key)) {
-          seenKeys.add(key);
-          const bullets: string[] = [];
-          
-          // Collect bullets after date
-          for (let j = i + 1; j < lines.length; j++) {
-            if (processedLines.has(j)) break;
-            
-            const nextLine = lines[j]?.trim() || '';
-            if (!nextLine) {
-              processedLines.add(j);
-              continue;
-            }
-            
-            // Stop at next header or date
-            if (parseRoleCompany(nextLine) || isLikelyHeader(nextLine)) break;
-            const nextDate = extractDate(nextLine);
-            if (nextDate && !isBullet(nextLine)) break;
-            
-            // Collect bullets
-            if (isBullet(nextLine)) {
-              const bulletText = extractBulletText(nextLine);
-              if (bulletText.length > 0) {
-                bullets.push(bulletText);
-              }
-            } else if (nextLine.length > 5 && !extractDate(nextLine)) {
-              bullets.push(nextLine);
-            }
-            
-            processedLines.add(j);
-          }
-          
-          experiences.push({
-            id: `exp-${experiences.length + 1}`,
-            role: foundRole || 'Unknown Role',
-            company: foundCompany || 'Unknown Company',
-            period: dateRange,
-            description: '',
-            bullets: bullets,
-          });
-        }
-        
-        processedLines.add(i);
-      }
-    }
-    
-    i++;
+  }
+  
+  // Don't forget the last entry
+  if (currentExp && (currentExp.role || currentExp.company)) {
+    currentExp.bullets = bullets.filter(b => b.length > 5);
+    experiences.push({
+      id: `exp-${experiences.length + 1}`,
+      role: currentExp.role || '',
+      company: currentExp.company || '',
+      period: currentExp.period || '',
+      description: '',
+      bullets: currentExp.bullets || [],
+    });
   }
   
   return experiences;
