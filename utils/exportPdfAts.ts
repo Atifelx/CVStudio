@@ -182,21 +182,38 @@ export async function exportToPdfAts(
     // --- Header ---
     if (header.name) {
       addText(header.name, { fontSize: nameSize, bold: true, color: blueColor, align: 'center' });
+      addSpace(3);
     }
+    
     if (header.title) {
       addText(header.title, { fontSize: Math.round(baseFontSize * 1.1), align: 'center' });
+      addSpace(5);
     }
     
-    const contactParts = [header.contact.email, header.contact.phone, header.contact.linkedin, header.contact.github]
-      .filter(Boolean)
-      .join(' | ');
-    if (contactParts) addText(contactParts, { align: 'center' });
+    // Contact information on separate lines, grouped logically
+    if (header.contact.email || header.contact.phone || header.contact.linkedin || header.contact.github) {
+      const contactLine1 = [header.contact.email, header.contact.phone].filter(Boolean).join(' | ');
+      const contactLine2 = [header.contact.linkedin, header.contact.github].filter(Boolean).join(' | ');
+      
+      if (contactLine1) addText(contactLine1, { align: 'center' });
+      if (contactLine2) addText(contactLine2, { align: 'center' });
+    }
     
-    const locParts = [header.contact.location, header.contact.workAuthorization].filter(Boolean);
-    if (locParts.length) addText(`Location: ${locParts.join(' | ')}`, { align: 'center' });
+    // Location and work authorization on one line
+    if (header.contact.location) {
+      const locationParts = [header.contact.location, header.contact.workAuthorization].filter(Boolean);
+      if (locationParts.length > 0) {
+        addText(`Location: ${locationParts.join(' | ')}`, { align: 'center' });
+      }
+    }
     
-    const relParts = [header.contact.relocation, header.contact.travel].filter(Boolean);
-    if (relParts.length) addText(`Relocation: ${relParts.join(' | ')}`, { align: 'center' });
+    // Relocation on separate line if exists
+    if (header.contact.relocation || header.contact.travel) {
+      const relocationParts = [header.contact.relocation, header.contact.travel].filter(Boolean);
+      if (relocationParts.length > 0) {
+        addText(`Relocation: ${relocationParts.join(' | ')}`, { align: 'center' });
+      }
+    }
     
     addSpace(15);
 
