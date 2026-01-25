@@ -28,11 +28,13 @@ import { exportToPdf, printToPdf } from '@/utils/exportPdf';
 import { exportToPdfAts } from '@/utils/exportPdfAts';
 import {
   LINE_HEIGHT_OPTIONS,
+  FONT_OPTIONS,
   SpacingPreset,
   PageSize,
   MarginPreset,
   ContentWidth,
   LineHeight,
+  FontFamily,
 } from '@/types/layout';
 
 /**
@@ -44,6 +46,7 @@ export default function Toolbar() {
     settings,
     setFontSize,
     setLineHeight,
+    setFontFamily,
     setSpacing,
     setPageSize,
     setMargin,
@@ -350,9 +353,24 @@ export default function Toolbar() {
                   <Type size={14} className="text-gray-600" />
                   <span className="text-xs font-medium text-gray-700">Typography</span>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="text-xs text-gray-500 block mb-1">Font: {settings.fontSize}pt <span className="text-gray-400">(≈{Math.round(settings.fontSize * 1.333)}px)</span></label>
+                    <label className="text-xs text-gray-500 block mb-1">Font Family</label>
+                    <select
+                      value={settings.fontFamily}
+                      onChange={(e) => setFontFamily(e.target.value as FontFamily)}
+                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                      style={{ fontFamily: settings.fontFamily }}
+                    >
+                      {FONT_OPTIONS.map((font) => (
+                        <option key={font.value} value={font.value} style={{ fontFamily: font.value }}>
+                          {font.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 block mb-1">Font Size: {settings.fontSize}pt <span className="text-gray-400">(≈{Math.round(settings.fontSize * 1.333)}px)</span></label>
                     <input
                       type="range" min="8" max="14" step="0.5"
                       value={settings.fontSize}
@@ -360,6 +378,8 @@ export default function Toolbar() {
                       className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
                     />
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">Line Height</label>
                     <select

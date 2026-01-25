@@ -30,6 +30,32 @@ export type ContentWidth = 100 | 95 | 90 | 85 | 80;
 
 export type TargetPages = 1 | 2 | 3 | null;
 
+// Font families for resume - ATS-friendly and readable
+export type FontFamily = 
+  | 'Times New Roman'  // Classic, ATS-friendly
+  | 'Arial'            // Clean, modern
+  | 'Calibri'          // Modern, readable
+  | 'Georgia'          // Professional serif
+  | 'Garamond'         // Elegant serif
+  | 'Helvetica'        // Clean sans-serif
+  | 'Lato'             // Modern sans-serif
+  | 'Open Sans'        // Readable sans-serif
+  | 'Roboto'           // Google font, clean
+  | 'Source Sans Pro'; // Professional sans-serif
+
+export const FONT_OPTIONS: Array<{ value: FontFamily; label: string; category: 'serif' | 'sans-serif' }> = [
+  { value: 'Times New Roman', label: 'Times New Roman', category: 'serif' },
+  { value: 'Arial', label: 'Arial', category: 'sans-serif' },
+  { value: 'Calibri', label: 'Calibri', category: 'sans-serif' },
+  { value: 'Georgia', label: 'Georgia', category: 'serif' },
+  { value: 'Garamond', label: 'Garamond', category: 'serif' },
+  { value: 'Helvetica', label: 'Helvetica', category: 'sans-serif' },
+  { value: 'Lato', label: 'Lato', category: 'sans-serif' },
+  { value: 'Open Sans', label: 'Open Sans', category: 'sans-serif' },
+  { value: 'Roboto', label: 'Roboto', category: 'sans-serif' },
+  { value: 'Source Sans Pro', label: 'Source Sans Pro', category: 'sans-serif' },
+];
+
 export interface VerticalSpacing {
   sectionGap: number;
   paragraphGap: number;
@@ -78,6 +104,7 @@ export const BALANCED_VERTICAL_SPACING: VerticalSpacing = {
 export interface LayoutSettings {
   fontSize: number;
   lineHeight: LineHeight;
+  fontFamily: FontFamily;
   spacing: SpacingPreset;
   pageSize: PageSize;
   margin: MarginPreset;
@@ -91,6 +118,7 @@ export interface LayoutSettings {
 export const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = {
   fontSize: 11,          // 11pt = ~15px (standard resume body text)
   lineHeight: 1.2,
+  fontFamily: 'Calibri', // Modern, readable default
   spacing: 'normal',
   pageSize: 'a4',
   margin: 'narrow',
@@ -103,6 +131,7 @@ export const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = {
 export const COMPACT_LAYOUT_SETTINGS: LayoutSettings = {
   fontSize: 10,          // 10pt = ~13px
   lineHeight: 1.15,
+  fontFamily: 'Calibri',
   spacing: 'compact',
   pageSize: 'a4',
   margin: 'narrow',
@@ -115,6 +144,7 @@ export const COMPACT_LAYOUT_SETTINGS: LayoutSettings = {
 export const ULTRA_COMPACT_SETTINGS: LayoutSettings = {
   fontSize: 9,           // 9pt = ~12px (minimum readable)
   lineHeight: 1.1,
+  fontFamily: 'Arial',
   spacing: 'compact',
   pageSize: 'a4',
   margin: 'narrow',
@@ -127,6 +157,7 @@ export const ULTRA_COMPACT_SETTINGS: LayoutSettings = {
 export const BALANCED_LAYOUT_SETTINGS: LayoutSettings = {
   fontSize: 11,          // 11pt = ~15px (professional standard)
   lineHeight: 1.2,
+  fontFamily: 'Calibri',
   spacing: 'normal',
   pageSize: 'a4',
   margin: 'narrow',

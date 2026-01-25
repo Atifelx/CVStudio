@@ -26,6 +26,7 @@ export async function exportToPdf(
   const settings: LayoutSettings = layoutSettings || {
     fontSize: 11,
     lineHeight: 1.2,
+    fontFamily: 'Calibri',
     spacing: 'normal',
     pageSize: 'a4',
     margin: 'narrow',

@@ -14,6 +14,7 @@ import {
   ContentWidth,
   TargetPages,
   VerticalSpacing,
+  FontFamily,
   PAGE_DIMENSIONS,
   MARGIN_VALUES,
 } from '@/types/layout';
@@ -33,6 +34,7 @@ interface LayoutContextType {
   // Setters
   setFontSize: (size: number) => void;
   setLineHeight: (height: LineHeight) => void;
+  setFontFamily: (font: FontFamily) => void;
   setSpacing: (spacing: SpacingPreset) => void;
   setPageSize: (size: PageSize) => void;
   setMargin: (margin: MarginPreset) => void;
@@ -85,6 +87,10 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
 
   const setLineHeight = useCallback((lineHeight: LineHeight) => {
     setSettings((prev) => ({ ...prev, lineHeight }));
+  }, []);
+
+  const setFontFamily = useCallback((fontFamily: FontFamily) => {
+    setSettings((prev) => ({ ...prev, fontFamily }));
   }, []);
 
   const setSpacing = useCallback((spacing: SpacingPreset) => {
@@ -252,6 +258,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     const fontSizeInPixels = Math.round(settings.fontSize * 1.333);
     root.style.setProperty('--resume-font-size', `${fontSizeInPixels}px`);
     root.style.setProperty('--resume-line-height', String(settings.lineHeight));
+    root.style.setProperty('--resume-font-family', `"${settings.fontFamily}", ${settings.fontFamily.includes(' ') ? settings.fontFamily.split(' ')[0] : settings.fontFamily}, sans-serif`);
     
     root.style.setProperty('--resume-section-gap', `${vs.sectionGap}px`);
     root.style.setProperty('--resume-paragraph-gap', `${vs.paragraphGap}px`);
@@ -288,11 +295,12 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   }, [settings, getUsableHeightPx]);
 
   return (
-    <LayoutContext.Provider
+      <LayoutContext.Provider
       value={{
         settings,
         setFontSize,
         setLineHeight,
+        setFontFamily,
         setSpacing,
         setPageSize,
         setMargin,

@@ -70,6 +70,7 @@ export default function ResumeContainer({ children, id = 'resume-content' }: Res
         style={{
           fontSize: 'var(--resume-font-size, 11px)',
           lineHeight: 'var(--resume-line-height, 1.2)',
+          fontFamily: 'var(--resume-font-family, "Calibri", Calibri, sans-serif)',
         }}
       >
         {children}
