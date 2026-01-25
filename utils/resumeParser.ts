@@ -606,22 +606,41 @@ function parseExperience(text: string): ExperienceItem[] {
   };
   
   /**
-   * Extract date range from a line
+   * Extract date range from a line - improved to handle all formats including spacing variations
    */
   const extractDate = (line: string): string | null => {
-    const match = line.match(PATTERNS.dateRange);
+    // Try the main pattern first
+    let match = line.match(PATTERNS.dateRange);
     if (match) {
-      // Extract just the date part (before any | separator or extra text)
-      return match[0].trim();
+      let dateStr = match[0].trim();
+      // Normalize spacing: "Jan 2020– Sep 2021" -> "Jan 2020 – Sep 2021"
+      // Handle cases where dash has no space after it
+      dateStr = dateStr.replace(/(\d{4}|[a-z]+\s+\d{4})\s*([–—\-])\s*([a-z]+|\d{4})/gi, (m, start, dash, end) => {
+        return `${start.trim()} – ${end.trim()}`;
+      });
+      return dateStr;
     }
+    
+    // Fallback: try to match dates with no space after dash (e.g., "Jan 2020– Sep 2021")
+    const noSpaceMatch = line.match(/(\d{4}|[a-z]+\s+\d{4})\s*([–—\-])\s*([a-z]+\s+\d{4}|present|current|now|ongoing|\d{4})/gi);
+    if (noSpaceMatch) {
+      let dateStr = noSpaceMatch[0].trim();
+      // Normalize spacing
+      dateStr = dateStr.replace(/(\d{4}|[a-z]+\s+\d{4})\s*([–—\-])\s*([a-z]+\s+\d{4}|present|current|now|ongoing|\d{4})/gi, (m, start, dash, end) => {
+        return `${start.trim()} – ${end.trim()}`;
+      });
+      return dateStr;
+    }
+    
     return null;
   };
   
   /**
-   * Check if line is a bullet point
+   * Check if line is a bullet point - improved to catch all formats
    */
   const isBullet = (line: string): boolean => {
     const trimmed = line.trim();
+    // Match: •, -, *, ●, or numbered (1. 2) 3) etc)
     return /^[•\-*●]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
   };
   
@@ -630,6 +649,21 @@ function parseExperience(text: string): ExperienceItem[] {
    */
   const extractBulletText = (line: string): string => {
     return line.replace(/^[•\-*●]\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
+  };
+  
+  /**
+   * Check if line looks like a role/company header (not a bullet, not a date, reasonable length)
+   */
+  const isLikelyHeader = (line: string): boolean => {
+    if (!line || line.length < 5 || line.length > 150) return false;
+    if (isBullet(line)) return false;
+    if (extractDate(line)) return false;
+    if (sectionBoundaryPattern.test(line)) return false;
+    // If it contains separators like | or –, likely a header
+    if (line.includes('|') || line.includes('–') || line.includes(' - ')) return true;
+    // If it's short and doesn't look like a sentence, might be a header
+    if (line.length < 80 && !/[.!?]$/.test(line)) return true;
+    return false;
   };
   
   // DATE-DRIVEN PARSING: Find all date lines, then build entries around them
@@ -650,7 +684,8 @@ function parseExperience(text: string): ExperienceItem[] {
     // Look for date ranges - these are our PRIMARY ANCHORS
     const dateRange = extractDate(line);
     if (!dateRange) {
-      // No date on this line - skip (bullets will be collected when we find their date anchor)
+      // No date on this line - check if it's a potential header we should track
+      // But don't process it yet - wait for its date anchor
       continue;
     }
     
@@ -659,18 +694,37 @@ function parseExperience(text: string): ExperienceItem[] {
     let company = '';
     const bullets: string[] = [];
     
-    // RULE 1: Look ABOVE the date line (previous 1-2 lines) for role/company
-    if (i > 0) {
-      const prevLine = lines[i - 1]?.trim() || '';
-      if (prevLine && !processedLines.has(i - 1)) {
+    // RULE 1: Look ABOVE the date line (previous 1-3 lines) for role/company
+    // Check up to 3 lines back to catch headers that might be separated
+    for (let lookback = 1; lookback <= 3 && i - lookback >= 0; lookback++) {
+      const prevIdx = i - lookback;
+      if (processedLines.has(prevIdx)) break;
+      
+      const prevLine = lines[prevIdx]?.trim() || '';
+      if (!prevLine) continue;
+      
+      // Stop if we hit another date (this date belongs to that entry)
+      if (extractDate(prevLine)) break;
+      
+      // Stop if we hit a section boundary
+      if (sectionBoundaryPattern.test(prevLine)) break;
+      
+      // If this looks like a header, try to parse it
+      if (isLikelyHeader(prevLine) || parseRoleCompany(prevLine)) {
         const parsed = parseRoleCompany(prevLine);
         if (parsed) {
           role = parsed.role;
           company = parsed.company;
-          processedLines.add(i - 1); // Mark as processed
-        } else if (prevLine.length > 5 && prevLine.length < 100 && !PATTERNS.dateRange.test(prevLine) && !isBullet(prevLine)) {
-          // Fallback: prev line might be role (if no separator found)
+          // Mark all lines between header and date as processed
+          for (let k = prevIdx; k < i; k++) {
+            processedLines.add(k);
+          }
+          break;
+        } else if (prevLine.length > 5 && prevLine.length < 100 && !isBullet(prevLine)) {
+          // Fallback: use the line as role if it looks reasonable
           role = prevLine;
+          processedLines.add(prevIdx);
+          break;
         }
       }
     }
@@ -705,7 +759,10 @@ function parseExperience(text: string): ExperienceItem[] {
           }
           
           // Stop at section boundaries
-          if (sectionBoundaryPattern.test(nextLine)) break;
+          if (sectionBoundaryPattern.test(nextLine)) {
+            processedLines.add(j);
+            break;
+          }
           
           // Stop at next date anchor (new entry)
           const nextDate = extractDate(nextLine);
@@ -713,7 +770,7 @@ function parseExperience(text: string): ExperienceItem[] {
             // Check if this is a new entry (has role/company on previous line)
             if (j > 0) {
               const beforeNextDate = lines[j - 1]?.trim() || '';
-              if (parseRoleCompany(beforeNextDate)) {
+              if (parseRoleCompany(beforeNextDate) || isLikelyHeader(beforeNextDate)) {
                 break; // New entry starts here
               }
             }
@@ -727,7 +784,7 @@ function parseExperience(text: string): ExperienceItem[] {
             if (bulletText.length > 0) {
               existing.bullets.push(bulletText);
             }
-          } else if (nextLine.length > 5 && !parseRoleCompany(nextLine) && !extractDate(nextLine) && !sectionBoundaryPattern.test(nextLine)) {
+          } else if (nextLine.length > 5 && !parseRoleCompany(nextLine) && !extractDate(nextLine) && !sectionBoundaryPattern.test(nextLine) && !isLikelyHeader(nextLine)) {
             // Non-bullet text that's not a header/date/section - preserve as bullet
             existing.bullets.push(nextLine);
           }
@@ -765,7 +822,7 @@ function parseExperience(text: string): ExperienceItem[] {
         // Check if this date has role/company on previous line (new entry)
         if (j > 0) {
           const beforeNextDate = lines[j - 1]?.trim() || '';
-          if (parseRoleCompany(beforeNextDate)) {
+          if (parseRoleCompany(beforeNextDate) || isLikelyHeader(beforeNextDate)) {
             break; // New entry starts here
           }
         }
@@ -781,7 +838,7 @@ function parseExperience(text: string): ExperienceItem[] {
         if (bulletText.length > 0) {
           bullets.push(bulletText);
         }
-      } else if (nextLine.length > 5 && !parseRoleCompany(nextLine) && !extractDate(nextLine) && !sectionBoundaryPattern.test(nextLine)) {
+      } else if (nextLine.length > 5 && !parseRoleCompany(nextLine) && !extractDate(nextLine) && !sectionBoundaryPattern.test(nextLine) && !isLikelyHeader(nextLine)) {
         // Non-bullet text that's not a header/date/section - preserve as bullet
         bullets.push(nextLine);
       }
