@@ -216,11 +216,17 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     }, 500);
   }, [pageInfo.pageCount, settings]);
 
-  // Page count update
+  // Page count update – only setState when values actually change to avoid feedback loops
+  const prevPageInfoRef = useRef<{ pageCount: number; contentHeight: number; usableHeight: number } | null>(null);
   const updatePageCount = useCallback((contentHeight: number) => {
     const usableHeight = getUsableHeightPx(settings);
     const pageCount = Math.max(1, Math.ceil(contentHeight / usableHeight));
-    
+    const prev = prevPageInfoRef.current;
+    if (prev && prev.pageCount === pageCount && prev.contentHeight === contentHeight && prev.usableHeight === usableHeight) {
+      return;
+    }
+    prevPageInfoRef.current = { pageCount, contentHeight, usableHeight };
+
     const pageBreakPositions: number[] = [];
     for (let i = 1; i < pageCount; i++) {
       pageBreakPositions.push(i * usableHeight);

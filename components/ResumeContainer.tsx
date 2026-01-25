@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useRef, ReactNode } from 'react';
+import React, { useEffect, useRef, useCallback, ReactNode } from 'react';
 import { useLayout } from '@/context/LayoutContext';
 
 interface ResumeContainerProps {
   children: ReactNode;
   id?: string;
 }
+
+const MEASURE_DEBOUNCE_MS = 250;
 
 /**
  * ResumeContainer - Wrapper component that applies layout CSS variables
@@ -17,55 +19,46 @@ interface ResumeContainerProps {
  * 2. Applies CSS variables for typography and spacing
  * 3. Measures content height for page calculation
  * 4. Shows visual page break lines for live preview
+ * 
+ * Measurement is debounced and MutationObserver (characterData) removed
+ * to prevent feedback loops that hang the main thread.
  */
 export default function ResumeContainer({ children, id = 'resume-content' }: ResumeContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { settings, updatePageCount, pageInfo, showPageBreaks } = useLayout();
+  const lastHeightRef = useRef<number>(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Measure content height and update page count
+  const measureHeight = useCallback(() => {
+    if (!containerRef.current) return;
+    const height = containerRef.current.scrollHeight;
+    if (height === lastHeightRef.current) return;
+    lastHeightRef.current = height;
+    updatePageCount(height);
+  }, [updatePageCount]);
+
   useEffect(() => {
-    const measureHeight = () => {
-      if (containerRef.current) {
-        const height = containerRef.current.scrollHeight;
-        updatePageCount(height);
-      }
+    const scheduleMeasure = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        debounceRef.current = null;
+        measureHeight();
+      }, MEASURE_DEBOUNCE_MS);
     };
 
-    // Initial measurement after a short delay for styles to apply
-    const timer = setTimeout(measureHeight, 100);
+    const timer = setTimeout(measureHeight, 120);
+    window.addEventListener('resize', scheduleMeasure);
 
-    // Re-measure on window resize
-    window.addEventListener('resize', measureHeight);
-
-    // Use ResizeObserver for content changes
-    const resizeObserver = new ResizeObserver(() => {
-      measureHeight();
-    });
-
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
-
-    // Use MutationObserver for DOM changes
-    const mutationObserver = new MutationObserver(() => {
-      measureHeight();
-    });
-
-    if (containerRef.current) {
-      mutationObserver.observe(containerRef.current, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-      });
-    }
+    const resizeObserver = new ResizeObserver(scheduleMeasure);
+    if (containerRef.current) resizeObserver.observe(containerRef.current);
 
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('resize', measureHeight);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      window.removeEventListener('resize', scheduleMeasure);
       resizeObserver.disconnect();
-      mutationObserver.disconnect();
     };
-  }, [updatePageCount, settings]);
+  }, [measureHeight, settings]);
 
   return (
     <div className="relative">

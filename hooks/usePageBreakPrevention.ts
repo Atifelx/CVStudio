@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useLayout } from '@/context/LayoutContext';
+
+const CHECK_INTERVAL_MS = 1200;
+const THROTTLE_MS = 400;
 
 /**
  * Hook to prevent page breaks from splitting resume sections
- * 
- * This hook:
- * 1. Monitors the element's position relative to page breaks
- * 2. Detects when a section would be split across pages
- * 3. Dynamically adjusts spacing to move the section to the next page
+ *
+ * Monitors element position vs page breaks and adds marginTop when a section
+ * would be split. Throttled and interval relaxed to avoid feedback loops
+ * that hang the main thread.
  */
 export function usePageBreakPrevention<T extends HTMLElement = HTMLDivElement>(
   enabled: boolean = true
@@ -17,10 +19,19 @@ export function usePageBreakPrevention<T extends HTMLElement = HTMLDivElement>(
   const elementRef = useRef<T>(null);
   const { pageInfo } = useLayout();
   const [adjustment, setAdjustment] = useState<number>(0);
+  const lastAdjustmentRef = useRef<number>(0);
+  const lastCheckRef = useRef<number>(0);
 
-  useEffect(() => {
+  const checkAndAdjust = useCallback(() => {
+    const now = Date.now();
+    if (now - lastCheckRef.current < THROTTLE_MS) return;
+    lastCheckRef.current = now;
+
     if (!enabled || !elementRef.current || pageInfo.pageBreakPositions.length === 0) {
-      setAdjustment(0);
+      if (lastAdjustmentRef.current !== 0) {
+        lastAdjustmentRef.current = 0;
+        setAdjustment(0);
+      }
       return;
     }
 
@@ -28,62 +39,62 @@ export function usePageBreakPrevention<T extends HTMLElement = HTMLDivElement>(
     const container = element.closest('#resume-content') as HTMLElement;
     if (!container) return;
 
-    const checkAndAdjust = () => {
-      // Get element position relative to container using getBoundingClientRect
-      const containerRect = container.getBoundingClientRect();
-      const elementRect = element.getBoundingClientRect();
-      
-      // Calculate positions relative to container top (accounting for scroll)
-      const containerScrollTop = container.scrollTop || 0;
-      const elementTop = elementRect.top - containerRect.top + containerScrollTop;
-      const elementHeight = elementRect.height;
-      const elementBottom = elementTop + elementHeight;
+    const containerRect = container.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+    const containerScrollTop = container.scrollTop || 0;
+    const elementTop = elementRect.top - containerRect.top + containerScrollTop;
+    const elementHeight = elementRect.height;
+    const elementBottom = elementTop + elementHeight;
 
-      // Check each page break position
-      for (const breakPosition of pageInfo.pageBreakPositions) {
-        // If element starts before break but ends after break, it's being split
-        if (elementTop < breakPosition && elementBottom > breakPosition) {
-          // Calculate how much space needed to push entire section to next page
-          const spaceNeeded = breakPosition - elementTop;
-          setAdjustment(spaceNeeded + 5); // Add 5px buffer
-          return;
-        }
-        
-        // Also check if element is very close to a break (would be split)
-        // If element starts just before break and is tall enough to cross it
-        const distanceToBreak = breakPosition - elementTop;
-        if (distanceToBreak > 0 && distanceToBreak < elementHeight && elementHeight > 30) {
-          // Element would be split, push to next page
-          setAdjustment(distanceToBreak + 5);
-          return;
-        }
+    let next = 0;
+    for (const breakPosition of pageInfo.pageBreakPositions) {
+      if (elementTop < breakPosition && elementBottom > breakPosition) {
+        next = breakPosition - elementTop + 5;
+        break;
       }
-
-      // No adjustment needed
-      setAdjustment(0);
-    };
-
-    // Initial check after a delay to ensure layout is stable
-    const timer = setTimeout(checkAndAdjust, 150);
-
-    // Re-check on resize or content changes
-    const resizeObserver = new ResizeObserver(() => {
-      setTimeout(checkAndAdjust, 50);
-    });
-    resizeObserver.observe(element);
-    if (container) {
-      resizeObserver.observe(container);
+      const distanceToBreak = breakPosition - elementTop;
+      if (distanceToBreak > 0 && distanceToBreak < elementHeight && elementHeight > 30) {
+        next = distanceToBreak + 5;
+        break;
+      }
     }
 
-    // Also check when page break positions change
-    const checkInterval = setInterval(checkAndAdjust, 500);
+    if (next !== lastAdjustmentRef.current) {
+      lastAdjustmentRef.current = next;
+      setAdjustment(next);
+    }
+  }, [enabled, pageInfo.pageBreakPositions, pageInfo.usableHeight]);
+
+  useEffect(() => {
+    if (!enabled) {
+      setAdjustment(0);
+      lastAdjustmentRef.current = 0;
+      return;
+    }
+    if (!elementRef.current || pageInfo.pageBreakPositions.length === 0) {
+      setAdjustment(0);
+      lastAdjustmentRef.current = 0;
+      return;
+    }
+
+    const element = elementRef.current;
+    const container = element.closest('#resume-content') as HTMLElement;
+    if (!container) return;
+
+    const timer = setTimeout(checkAndAdjust, 200);
+    const resizeObserver = new ResizeObserver(() => {
+      setTimeout(checkAndAdjust, 100);
+    });
+    resizeObserver.observe(element);
+    resizeObserver.observe(container);
+    const checkInterval = setInterval(checkAndAdjust, CHECK_INTERVAL_MS);
 
     return () => {
       clearTimeout(timer);
       clearInterval(checkInterval);
       resizeObserver.disconnect();
     };
-  }, [enabled, pageInfo.pageBreakPositions, pageInfo.usableHeight]);
+  }, [enabled, pageInfo.pageBreakPositions, pageInfo.usableHeight, checkAndAdjust]);
 
   return {
     ref: elementRef,
