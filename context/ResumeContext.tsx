@@ -1,10 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useCallback, useMemo, ReactNode } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import type { ResumeData, SectionType } from '@/types/resume';
 import { setResumeData as setResumeDataAction, setEditingSection as setEditingSectionAction, setEditingItemId as setEditingItemIdAction, clearData } from '@/store/resumeSlice';
-import { persistor } from '@/store';
+import { store, persistor } from '@/store';
 import type { RootState } from '@/store';
 
 interface ResumeContextType {
@@ -35,48 +35,45 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
     (resumeData.generalSections?.length ?? 0) > 0
   );
 
-  const setResumeData = useCallback(
-    (action: React.SetStateAction<ResumeData>) => {
-      const next = typeof action === 'function' ? action(resumeData) : action;
-      dispatch(setResumeDataAction(next));
-    },
-    [dispatch, resumeData]
-  );
+  const setResumeData = useCallback((action: React.SetStateAction<ResumeData>) => {
+    const next = typeof action === 'function'
+      ? action(store.getState().resume.resumeData)
+      : action;
+    dispatch(setResumeDataAction(next));
+  }, [dispatch]);
 
-  const setEditingSection = useCallback(
-    (action: React.SetStateAction<SectionType | null>) => {
-      const next = typeof action === 'function' ? action(editingSection) : action;
-      dispatch(setEditingSectionAction(next));
-    },
-    [dispatch, editingSection]
-  );
+  const setEditingSection = useCallback((action: React.SetStateAction<SectionType | null>) => {
+    const next = typeof action === 'function'
+      ? action(store.getState().resume.editingSection)
+      : action;
+    dispatch(setEditingSectionAction(next));
+  }, [dispatch]);
 
-  const setEditingItemId = useCallback(
-    (action: React.SetStateAction<string | null>) => {
-      const next = typeof action === 'function' ? action(editingItemId) : action;
-      dispatch(setEditingItemIdAction(next));
-    },
-    [dispatch, editingItemId]
-  );
+  const setEditingItemId = useCallback((action: React.SetStateAction<string | null>) => {
+    const next = typeof action === 'function'
+      ? action(store.getState().resume.editingItemId)
+      : action;
+    dispatch(setEditingItemIdAction(next));
+  }, [dispatch]);
 
   const resetResume = useCallback(() => {
     dispatch(clearData());
     void persistor.purge();
   }, [dispatch]);
 
+  const value = useMemo(() => ({
+    resumeData,
+    setResumeData,
+    editingSection,
+    setEditingSection,
+    editingItemId,
+    setEditingItemId,
+    hasData,
+    resetResume,
+  }), [resumeData, setResumeData, editingSection, setEditingSection, editingItemId, setEditingItemId, hasData, resetResume]);
+
   return (
-    <ResumeContext.Provider
-      value={{
-        resumeData,
-        setResumeData,
-        editingSection,
-        setEditingSection,
-        editingItemId,
-        setEditingItemId,
-        hasData,
-        resetResume,
-      }}
-    >
+    <ResumeContext.Provider value={value}>
       {children}
     </ResumeContext.Provider>
   );
