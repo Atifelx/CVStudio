@@ -33,7 +33,7 @@ export default function ResumeSection({
           style={{ marginBottom: 'var(--resume-header-gap)', paddingBottom: 'calc(var(--resume-header-gap) / 2)' }}
         >
           <h3 
-            className="font-bold text-gray-800 flex-1"
+            className="font-bold text-blue-600 flex-1"
             style={{ fontSize: 'calc(var(--resume-font-size) * 1.4)' }}
           >
             {title}

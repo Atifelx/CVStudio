@@ -55,14 +55,30 @@ export async function exportToPdfAts(
     text: string,
     opts: { size?: number; bold?: boolean; align?: 'left' | 'center' } = {}
   ): void {
+    // Clean text to prevent breaking issues with special characters
+    // Replace problematic characters that might cause text breaking
+    const cleanText = text
+      .replace(/[''""]/g, '"') // Normalize quotes
+      .replace(/['']/g, "'") // Normalize apostrophes
+      .replace(/[–—]/g, '-') // Normalize dashes
+      .replace(/[!]/g, '!') // Ensure exclamation marks are standard
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+    
     const size = opts.size ?? fontSize;
     pdf.setFont(FONT, opts.bold ? 'bold' : 'normal');
     pdf.setFontSize(size);
-    const lines = pdf.splitTextToSize(text, contentW);
+    
+    // Use splitTextToSize - this handles text wrapping
+    const lines = pdf.splitTextToSize(cleanText, contentW);
+    
     const h = lines.length * lineHeightMm * (size / fontSize);
     checkNewPage(h);
     const x = opts.align === 'center' ? centerX : contentLeft;
+    
+    // Add all lines at once (jsPDF handles multi-line text)
     pdf.text(lines, x, y, { align: opts.align || 'left' });
+    
     y += h;
   }
 

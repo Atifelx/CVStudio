@@ -96,6 +96,20 @@ export async function exportToPdf(
       scrollX: 0,
       scrollY: 0,
       foreignObjectRendering: false,
+      // Ensure colors are captured correctly
+      onclone: (clonedDoc) => {
+        // Force render colors by ensuring styles are applied
+        const clonedElement = clonedDoc.getElementById(elementId);
+        if (clonedElement) {
+          // Ensure all computed styles are preserved
+          const style = clonedDoc.createElement('style');
+          style.textContent = `
+            .text-blue-600 { color: rgb(37, 99, 235) !important; }
+            .border-blue-600 { border-color: rgb(37, 99, 235) !important; }
+          `;
+          clonedDoc.head.appendChild(style);
+        }
+      },
     });
 
     // Restore original display styles
