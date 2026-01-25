@@ -205,7 +205,7 @@ export default function EducationSection() {
 }
 
 /**
- * Individual education entry component with page break prevention
+ * Individual education entry: single line, no bold for institution (saves space).
  */
 function EducationEntry({ 
   edu, 
@@ -218,18 +218,16 @@ function EducationEntry({
 }) {
   const { ref, style: breakStyle } = usePageBreakPrevention<HTMLDivElement>(true);
   const baseStyle = { marginBottom: !isLast ? 'var(--resume-paragraph-gap)' : 0 };
-  
+  const parts = [edu.degree, edu.institution, edu.location].filter(Boolean).join(' | ');
+
   return (
     <div 
       ref={ref}
       className="education-entry"
-      style={{ ...baseStyle, ...breakStyle }}
+      style={{ ...baseStyle, ...breakStyle, fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)' }}
     >
-      <h4 className="font-bold text-gray-800" style={{ fontSize: 'calc(var(--resume-font-size) * 1.05)' }}>
-        {edu.degree}
-      </h4>
-      <p className="text-gray-600" style={{ fontSize: 'var(--resume-font-size)' }}>
-        {edu.institution} | {edu.location}
+      <p className="text-gray-800" style={{ margin: 0, fontWeight: 400 }}>
+        {parts}
       </p>
     </div>
   );

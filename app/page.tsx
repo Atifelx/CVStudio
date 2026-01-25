@@ -116,6 +116,7 @@ function ResumeEditor({ onSwitchToUpload, onStartFromScratch }: { onSwitchToUplo
                   <li>• Add quantifiable achievements</li>
                   <li>• Use action verbs</li>
                   <li>• Include keywords</li>
+                  <li className="font-medium text-blue-800 mt-1">• <strong>Sharp + ATS:</strong> use <strong>Print → PDF</strong> (recommended), or <strong>DOCX</strong> / <strong>PDF (ATS)</strong>. Image PDF may not parse.</li>
                 </ul>
               </div>
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 max-w-xs">
@@ -239,6 +240,7 @@ function MainContent() {
       experience: data.experience && data.experience.length > 0 ? data.experience : prev.experience,
       education: data.education && data.education.length > 0 ? data.education : prev.education,
       forwardDeployedExpertise: data.forwardDeployedExpertise ?? prev.forwardDeployedExpertise,
+      generalSections: data.generalSections && data.generalSections.length > 0 ? data.generalSections : prev.generalSections,
       sectionVisibility: data.sectionVisibility ? { 
         ...prev.sectionVisibility, 
         ...data.sectionVisibility 
@@ -362,6 +364,7 @@ function MainContent() {
                 experience: [],
                 education: [],
                 forwardDeployedExpertise: '',
+                generalSections: [],
                 sectionVisibility: {
                   expertise: false,
                   summary: true,

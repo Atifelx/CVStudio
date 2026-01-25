@@ -380,6 +380,7 @@ function analyzeKeywords(data: ResumeData, suggestions: string[], strengths: str
     ...data.skills.map(s => s.skills),
     ...data.experience.flatMap(e => [e.role, e.description, ...e.bullets]),
     data.forwardDeployedExpertise,
+    ...(data.generalSections || []).flatMap(s => [s.title, s.summary]),
   ].join(' ').toLowerCase();
 
   // Technical keywords (5 points)
@@ -477,6 +478,7 @@ function analyzeFormatting(data: ResumeData, suggestions: string[], strengths: s
     ...data.skills.map(s => s.skills),
     ...data.experience.flatMap(e => [e.description, ...e.bullets]),
     data.forwardDeployedExpertise,
+    ...(data.generalSections || []).flatMap(s => [s.title, s.summary]),
   ].join(' ');
 
   const wordCount = allText.split(/\s+/).length;

@@ -192,10 +192,15 @@ export default function ATSScorePanel() {
               </div>
             </div>
 
-            {/* Tip */}
-            <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
-              <TrendingUp size={12} />
-              <span>Aim for 80%+ ATS score for best results. Edit sections to improve your score in real-time.</span>
+            {/* Tips */}
+            <div className="mt-3 space-y-1.5 text-xs text-gray-500">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={12} />
+                <span>Aim for 80%+ ATS score. Edit sections to improve your score in real-time.</span>
+              </div>
+              <p className="text-green-800/90">
+                <strong>Best for quality + ATS:</strong> <strong>Print → PDF</strong>. Or <strong>DOCX</strong> / <strong>PDF (ATS)</strong>. Image PDF = not ideal for ATS.
+              </p>
             </div>
           </div>
         </div>

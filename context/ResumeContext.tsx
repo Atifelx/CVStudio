@@ -29,6 +29,7 @@ const initialResumeData: ResumeData = {
   experience: [],
   education: [],
   forwardDeployedExpertise: '',
+  generalSections: [],
   sectionVisibility: {
     expertise: false,
     summary: true,

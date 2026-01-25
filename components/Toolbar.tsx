@@ -23,7 +23,8 @@ import {
 import { useResume } from '@/context/ResumeContext';
 import { useLayout } from '@/context/LayoutContext';
 import { exportToDocx } from '@/utils/exportDocx';
-import { exportToPdf } from '@/utils/exportPdf';
+import { exportToPdf, printToPdf } from '@/utils/exportPdf';
+import { exportToPdfAts } from '@/utils/exportPdfAts';
 import {
   LINE_HEIGHT_OPTIONS,
   SpacingPreset,
@@ -59,7 +60,10 @@ export default function Toolbar() {
 
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingPdfAts, setIsExportingPdfAts] = useState(false);
   const [showMoreControls, setShowMoreControls] = useState(false);
+
+  const baseName = resumeData.header.name.replace(/\s+/g, '_') || 'Resume';
 
   const handleExportDocx = async () => {
     setIsExportingDocx(true);
@@ -76,13 +80,24 @@ export default function Toolbar() {
   const handleExportPdf = async () => {
     setIsExportingPdf(true);
     try {
-      const filename = `${resumeData.header.name.replace(/\s+/g, '_')}_Resume.pdf`;
-      await exportToPdf('resume-content', filename, settings);
+      await exportToPdf('resume-content', `${baseName}_Resume.pdf`, settings);
     } catch (error) {
       console.error('PDF export error:', error);
       alert('Failed to export PDF.');
     } finally {
       setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportPdfAts = async () => {
+    setIsExportingPdfAts(true);
+    try {
+      await exportToPdfAts(resumeData, `${baseName}_Resume_ATS.pdf`, settings);
+    } catch (error) {
+      console.error('ATS PDF export error:', error);
+      alert('Failed to export ATS PDF.');
+    } finally {
+      setIsExportingPdfAts(false);
     }
   };
 
@@ -159,12 +174,40 @@ export default function Toolbar() {
           </button>
 
           {/* Export */}
-          <div className="flex gap-2">
-            <button onClick={handleExportDocx} disabled={isExportingDocx} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400 text-xs font-medium">
-              {isExportingDocx ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} DOCX
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={printToPdf}
+              title="Best quality + ATS · Browser print, then Save as PDF · Sharp vector text"
+              className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-medium border border-indigo-700"
+            >
+              Print → PDF <span className="opacity-90 text-[10px]">recommended</span>
             </button>
-            <button onClick={handleExportPdf} disabled={isExportingPdf} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 text-xs font-medium">
-              {isExportingPdf ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} PDF
+            <button
+              onClick={handleExportDocx}
+              disabled={isExportingDocx}
+              title="ATS-friendly · Native text · Use for job applications"
+              className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400 text-xs font-medium"
+            >
+              {isExportingDocx ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+              DOCX <span className="opacity-80 text-[10px]">ATS</span>
+            </button>
+            <button
+              onClick={handleExportPdfAts}
+              disabled={isExportingPdfAts}
+              title="Text-based PDF · ATS parses correctly · Good for applications"
+              className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:bg-emerald-400 text-xs font-medium"
+            >
+              {isExportingPdfAts ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+              PDF <span className="opacity-80 text-[10px]">ATS</span>
+            </button>
+            <button
+              onClick={handleExportPdf}
+              disabled={isExportingPdf}
+              title="Image PDF · High-res for viewing/print · Not ideal for ATS"
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 text-xs font-medium"
+            >
+              {isExportingPdf ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+              PDF
             </button>
           </div>
         </div>

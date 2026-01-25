@@ -41,9 +41,16 @@ export interface SkillCategory {
   skills: string;
 }
 
+/** General section: custom block with title + summary (replaces Forward Deployed Expertise) */
+export interface GeneralSectionItem {
+  id: string;
+  title: string;
+  summary: string;
+}
+
 // Section visibility settings - for optional/deletable sections
 export interface SectionVisibility {
-  expertise: boolean;   // Forward Deployed Expertise section
+  expertise: boolean;   // General Sections (optional block)
   summary: boolean;     // Professional Summary (optional for some roles)
   skills: boolean;      // Technical Skills
   education: boolean;   // Education section
@@ -55,7 +62,8 @@ export interface ResumeData {
   skills: SkillCategory[];
   experience: ExperienceItem[];
   education: EducationItem[];
-  forwardDeployedExpertise: string;
+  forwardDeployedExpertise: string;  // legacy; use generalSections
+  generalSections: GeneralSectionItem[];
   sectionVisibility: SectionVisibility;
 }
 

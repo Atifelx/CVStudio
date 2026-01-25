@@ -29,7 +29,7 @@ export async function exportToDocx(
   resumeData: ResumeData,
   layoutSettings?: LayoutSettings
 ): Promise<void> {
-  const { header, summary, skills, experience, education, forwardDeployedExpertise } = resumeData;
+  const { header, summary, skills, experience, education, generalSections } = resumeData;
 
   const settings: LayoutSettings = layoutSettings || DEFAULT_LAYOUT_SETTINGS;
   const vs = settings.verticalSpacing;
@@ -259,12 +259,21 @@ export async function exportToDocx(
     );
   });
 
-  // === FORWARD DEPLOYED EXPERTISE === (Optional section)
-  if (resumeData.sectionVisibility?.expertise !== false) {
-    children.push(
-      createSectionHeading('FORWARD DEPLOYED ENGINEERING EXPERTISE'),
-      createParagraph(forwardDeployedExpertise)
-    );
+  // === GENERAL SECTIONS === (Optional)
+  if (resumeData.sectionVisibility?.expertise !== false && generalSections.length > 0) {
+    children.push(createSectionHeading('GENERAL SECTIONS'));
+    generalSections.forEach((s) => {
+      if (!s.title?.trim() && !s.summary?.trim()) return;
+      if (s.title?.trim()) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: s.title, bold: true, size: Math.round(fontSizeHalfPoints * 1.1) })],
+            spacing: { after: bulletSpacingTwips },
+          })
+        );
+      }
+      if (s.summary?.trim()) children.push(createParagraph(s.summary));
+    });
   }
 
   // Create document

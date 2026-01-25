@@ -340,6 +340,7 @@ export function parseResumeText(text: string): Partial<ResumeData> {
     experience: experience,
     education: education,
     forwardDeployedExpertise: '',
+    generalSections: [],
     sectionVisibility: {
       expertise: false,
       summary: !!summaryText,
