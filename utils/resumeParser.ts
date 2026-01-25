@@ -20,6 +20,8 @@ const PATTERNS = {
   linkedin: /linkedin\.com\/in\/[a-zA-Z0-9_-]+/gi,
   github: /github\.com\/[a-zA-Z0-9_-]+/gi,
   dateRange: /(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[.,]?\s*\d{4}|(?:\d{1,2}\/\d{4})|(?:\d{4}))\s*[-–—to]+\s*(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[.,]?\s*\d{4}|present|current|now|ongoing|\d{4})/gi,
+  // Also match standalone dates like "2023 – Dec 2024" or "2020– Sep 2021"
+  dateRangeStandalone: /^(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[.,]?\s*\d{4}|(?:\d{1,2}\/\d{4})|(?:\d{4}))\s*[-–—to]+\s*(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[.,]?\s*\d{4}|present|current|now|ongoing|\d{4})$/i,
   degree: /\b(?:bachelor|master|ph\.?d|b\.?s\.?c?|m\.?s\.?c?|b\.?a\.?|m\.?a\.?|b\.?e\.?|m\.?e\.?|mba|m\.?tech|b\.?tech|associate|diploma|certificate)\b/i,
 };
 
@@ -531,6 +533,11 @@ function extractSectionContent(
 
 /**
  * Parse experience section into structured data
+ * Handles multiple formats:
+ * - "Role | Company\nDate Range\n• bullets"
+ * - "Role – Company\nDate Range\n• bullets"
+ * - "Role at Company\nDate Range\n• bullets"
+ * - "Role | Company | Date Range\n• bullets"
  */
 function parseExperience(text: string): ExperienceItem[] {
   if (!text.trim()) return [];
@@ -540,16 +547,15 @@ function parseExperience(text: string): ExperienceItem[] {
   
   let currentExp: Partial<ExperienceItem> | null = null;
   let bullets: string[] = [];
-  let pendingHeader: { role: string; company: string } | null = null;
   let pendingProjectTitle: string | null = null;
   let pendingProjectBody: string[] = [];
 
   const flushCurrent = () => {
     if (currentExp && (currentExp.role || currentExp.company)) {
-      // Flush pending project aggregation
       if (pendingProjectTitle && pendingProjectBody.length > 0) {
         const body = pendingProjectBody.join(' ').replace(/[ ]+/g, ' ').trim();
         if (body) bullets.push(`${pendingProjectTitle} — ${body}`);
+        else bullets.push(pendingProjectTitle);
       } else if (pendingProjectTitle) {
         bullets.push(pendingProjectTitle);
       }
@@ -573,30 +579,40 @@ function parseExperience(text: string): ExperienceItem[] {
 
   const parseRoleCompanyLine = (line: string): { role: string; company: string } | null => {
     const cleaned = line.trim();
-    if (!cleaned) return null;
+    if (!cleaned || cleaned.length > 150) return null;
 
-    // Common formats:
-    // - "Software Engineer – Platform Automation | Sherweb"
-    // - "Product Engineer | WriteBookAI"
-    // - "Software Engineer - Company" (less reliable)
+    // Format 1: "Role | Company" or "Role | Company | Extra"
     if (cleaned.includes('|')) {
       const parts = cleaned.split('|').map((p) => p.trim()).filter(Boolean);
       if (parts.length >= 2) {
-        const left = parts[0];
-        const company = parts.slice(1).join(' | ');
-        // If left contains an en-dash/em-dash separating role specialization, keep as role
-        const role = left.replace(/[ ]+/g, ' ').trim();
-        return { role, company };
+        const role = parts[0].trim();
+        const company = parts[1].trim();
+        if (role.length > 3 && role.length <= 100 && company.length > 2 && company.length <= 80) {
+          return { role, company };
+        }
       }
     }
 
-    // "Role – Company" or "Role - Company"
+    // Format 2: "Role – Company" or "Role - Company" or "Role — Company"
     const dashMatch = cleaned.match(/^(.+?)\s*(?:–|—|-)\s*(.+)$/);
     if (dashMatch) {
       const role = dashMatch[1].trim();
       const company = dashMatch[2].trim();
-      // Avoid treating long paragraph lines as headers
-      if (role.length <= 80 && company.length <= 80) return { role, company };
+      if (role.length > 3 && role.length <= 100 && company.length > 2 && company.length <= 80) {
+        return { role, company };
+      }
+    }
+
+    // Format 3: "Role at Company"
+    if (cleaned.toLowerCase().includes(' at ')) {
+      const parts = cleaned.split(/\s+at\s+/i).map(p => p.trim());
+      if (parts.length >= 2) {
+        const role = parts[0];
+        const company = parts.slice(1).join(' at ').trim();
+        if (role.length > 3 && role.length <= 100 && company.length > 2 && company.length <= 80) {
+          return { role, company };
+        }
+      }
     }
 
     return null;
@@ -604,70 +620,92 @@ function parseExperience(text: string): ExperienceItem[] {
 
   const isLikelyProjectHeading = (line: string): boolean => {
     const l = line.trim();
-    if (!l) return false;
-    if (l.length < 6 || l.length > 90) return false;
-    if (PATTERNS.dateRange.test(l)) return false;
-    // headings often have parentheses or colon, or Title Case-ish words
-    const hasSignal = /client|system|automation|chatbot|routing|monitoring|pipeline|integration|optimization/i.test(l) || /:|\(|\)/.test(l);
+    if (!l || l.length < 6 || l.length > 90) return false;
+    if (PATTERNS.dateRange.test(l) || PATTERNS.dateRangeStandalone.test(l)) return false;
+    const hasSignal = /client|system|automation|chatbot|routing|monitoring|pipeline|integration|optimization|project|feature|tool|app|platform/i.test(l) || /:|\(|\)/.test(l);
     const tooSentenceLike = /[.?!]$/.test(l);
     return hasSignal && !tooSentenceLike;
+  };
+
+  const isDateLine = (line: string): boolean => {
+    return PATTERNS.dateRangeStandalone.test(line.trim()) || (PATTERNS.dateRange.test(line) && line.trim().length < 50);
   };
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
     
-    // Check if this line contains a date range
-    const dateMatch = line.match(PATTERNS.dateRange);
-    
-    // Detect new experience entry
     const isBullet = line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || line.startsWith('●');
-    const isNewEntry = dateMatch && !isBullet;
-
-    // If we have a pending header and this line is the date line, start a new entry
-    if (pendingHeader && isNewEntry) {
-      flushCurrent();
-      bullets = [];
-      currentExp = {
-        role: pendingHeader.role,
-        company: pendingHeader.company,
-        period: dateMatch ? dateMatch[0] : '',
-      };
-      pendingHeader = null;
-      continue;
+    const dateMatch = line.match(PATTERNS.dateRange);
+    const isDateOnly = isDateLine(line);
+    
+    // Case 1: Date-only line or line with date + extra info (e.g., "Dec 2024 – Present" or "2023 – Dec 2024 | writebookai.com")
+    if (dateMatch && !isBullet) {
+      // Extract just the date part (before any | or extra text)
+      const datePart = dateMatch[0];
+      const beforeDate = line.substring(0, line.indexOf(datePart)).trim();
+      const afterDate = line.substring(line.indexOf(datePart) + datePart.length).trim();
+      
+      // If this looks like a standalone date line (date is the main content)
+      const isStandaloneDate = isDateLine(line) || (beforeDate.length < 10 && afterDate.length < 30);
+      
+      if (isStandaloneDate) {
+        // Look back for role/company on previous line
+        if (i > 0) {
+          const prevLine = lines[i - 1]?.trim() || '';
+          const headerCandidate = parseRoleCompanyLine(prevLine);
+          if (headerCandidate) {
+            flushCurrent();
+            bullets = [];
+            // Extract date from line (might have extra info like "2023 – Dec 2024 | writebookai.com")
+            currentExp = {
+              role: headerCandidate.role,
+              company: headerCandidate.company,
+              period: datePart, // Just the date part, not the URL
+            };
+            pendingProjectTitle = null;
+            pendingProjectBody = [];
+            continue;
+          }
+        }
+        
+        // If we have currentExp but no period, this might be the period
+        if (currentExp && !currentExp.period) {
+          currentExp.period = datePart;
+          continue;
+        }
+      }
     }
     
-    if (isNewEntry) {
-      // Save previous entry
-      flushCurrent();
-      
-      // Parse the new entry
-      const period = dateMatch[0];
+    // Case 2: Line with date AND role/company (e.g., "Role | Company | Dec 2024 – Present")
+    if (dateMatch && !isBullet) {
       const beforeDate = line.substring(0, line.indexOf(dateMatch[0])).trim();
+      const afterDate = line.substring(line.indexOf(dateMatch[0]) + dateMatch[0].length).trim();
       
-      // Try to split role and company
-      let role = '';
-      let company = '';
-      
+      // Try to parse role/company from before date
       const parsed = parseRoleCompanyLine(beforeDate);
       if (parsed) {
-        role = parsed.role;
-        company = parsed.company;
-      } else if (beforeDate.includes(' at ')) {
-        const parts = beforeDate.split(' at ').map(p => p.trim());
-        role = parts[0] || '';
-        company = parts.slice(1).join(' at ') || '';
-      } else {
-        role = beforeDate;
+        flushCurrent();
+        bullets = [];
+        currentExp = {
+          role: parsed.role,
+          company: parsed.company,
+          period: dateMatch[0],
+        };
+        pendingProjectTitle = null;
+        pendingProjectBody = [];
+        continue;
       }
       
-      currentExp = { role, company, period };
-      bullets = [];
-      pendingProjectTitle = null;
-      pendingProjectBody = [];
-      
-    } else if (isBullet) {
-      // Flush any pending project heading/body before adding a bullet
+      // If no role/company before date, check if we have pending header
+      if (currentExp && !currentExp.period) {
+        currentExp.period = dateMatch[0];
+        continue;
+      }
+    }
+    
+    // Case 3: Bullet point
+    if (isBullet) {
       if (pendingProjectTitle) {
         const body = pendingProjectBody.join(' ').replace(/[ ]+/g, ' ').trim();
         if (body) bullets.push(`${pendingProjectTitle} — ${body}`);
@@ -676,29 +714,42 @@ function parseExperience(text: string): ExperienceItem[] {
         pendingProjectBody = [];
       }
 
-      // It's a bullet point
       const bulletText = line.replace(/^[•\-*●]\s*/, '').trim();
       if (bulletText.length > 5) {
         bullets.push(bulletText);
       }
-      
-    } else {
-      // Not a bullet and not a date line.
-      // 1) Detect job header lines and wait for the date line on the next line.
-      const headerCandidate = parseRoleCompanyLine(line);
-      if (!currentExp && headerCandidate) {
-        // We'll confirm this is a job header if the next non-empty line is a date range.
-        const next = lines[i + 1]?.trim() || '';
-        if (next && PATTERNS.dateRange.test(next)) {
-          pendingHeader = headerCandidate;
-          continue;
+      continue;
+    }
+    
+    // Case 4: Potential role/company line - look ahead for date
+    const headerCandidate = parseRoleCompanyLine(line);
+    if (headerCandidate) {
+      // Check if next line is a date
+      const nextLine = lines[i + 1]?.trim() || '';
+      if (isDateLine(nextLine)) {
+        // This is a header; flush current entry if exists, then wait for date line
+        // The date line (next iteration) will create the new entry via Case 1
+        if (currentExp) {
+          flushCurrent();
+          bullets = [];
         }
+        continue;
       }
-
-      // 2) If already inside a job, treat short headings as project titles and
-      //    fold subsequent paragraphs into one bullet for that project.
-      if (currentExp && isLikelyProjectHeading(line)) {
-        // Flush previous project if any
+      
+      // If we're not in an experience entry, this might start one
+      if (!currentExp) {
+        // Wait for date line - will be handled next iteration
+        continue;
+      }
+      
+      // If we're in an entry but this looks like a new header (no date on next line),
+      // it might be a project heading or company name
+      // Let it fall through to project heading detection
+    }
+    
+    // Case 5: Inside an experience entry - handle project headings and body text
+    if (currentExp) {
+      if (isLikelyProjectHeading(line)) {
         if (pendingProjectTitle) {
           const body = pendingProjectBody.join(' ').replace(/[ ]+/g, ' ').trim();
           if (body) bullets.push(`${pendingProjectTitle} — ${body}`);
@@ -709,32 +760,27 @@ function parseExperience(text: string): ExperienceItem[] {
         continue;
       }
 
-      // 3) If we have a pending project title, collect body lines
-      if (currentExp && pendingProjectTitle) {
-        // Stop collecting if we hit a new short heading (project) or a date
-        if (!PATTERNS.dateRange.test(line)) {
+      if (pendingProjectTitle) {
+        if (!isDateLine(line) && !parseRoleCompanyLine(line)) {
           pendingProjectBody.push(line);
           continue;
         }
       }
 
-      // 4) Fallback: company on separate line if role is set and company is empty
-      if (currentExp && !currentExp.company && line.length < 80) {
+      // Fallback: company on separate line
+      if (!currentExp.company && line.length < 80 && !PATTERNS.dateRange.test(line)) {
         currentExp.company = line;
         continue;
       }
 
-      // 5) Long line without date - treat as bullet/achievement text
-      if (line.length > 20 && !PATTERNS.dateRange.test(line)) {
+      // Long line without date - treat as achievement/bullet text
+      if (line.length > 20 && !PATTERNS.dateRange.test(line) && !parseRoleCompanyLine(line)) {
         bullets.push(line);
       }
-      
     }
   }
   
-  // Don't forget the last entry
   flushCurrent();
-  
   return experiences;
 }
 
