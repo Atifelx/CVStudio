@@ -43,7 +43,7 @@ export async function exportToPdf(
 
   try {
     const pageDim = PAGE_DIMENSIONS[settings.pageSize];
-    const marginMm = 8; // Tight margins
+    const marginMm = 5; // Minimal margins – use full page width (DOCX-like)
 
     // Show loading indicator
     const loadingDiv = document.createElement('div');

@@ -374,16 +374,15 @@ body {
    PDF Export Optimizations
    ========================================================================== */
 
-/* Ensure proper rendering during PDF export */
+/* Ensure proper rendering during PDF export – do NOT change padding/margins.
+ * PDF must match the app exactly; capture as-is. */
 .pdf-export-active,
 .pdf-export-active * {
   text-rendering: optimizeLegibility !important;
   -webkit-font-smoothing: antialiased !important;
   -moz-osx-font-smoothing: grayscale !important;
-  /* Prevent text compression */
   letter-spacing: normal !important;
   word-spacing: normal !important;
-  /* Ensure proper line height */
   line-height: inherit !important;
 }
 
