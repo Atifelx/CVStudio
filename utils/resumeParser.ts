@@ -562,7 +562,7 @@ function parseExperience(text: string): ExperienceItem[] {
   };
   
   /**
-   * Parse company and date from line like "Company | Date" or "Company - Date"
+   * Parse company and date from line like "Company | Date" or "Company - Website | Date"
    */
   const parseCompanyDate = (line: string): { company: string; date: string } | null => {
     const dateMatch = line.match(PATTERNS.dateRange);
@@ -570,17 +570,39 @@ function parseExperience(text: string): ExperienceItem[] {
     
     const date = dateMatch[0];
     const beforeDate = line.substring(0, line.indexOf(date)).trim();
-    const afterDate = line.substring(line.indexOf(date) + date.length).trim();
     
-    // Format: "Company | Date" or "Company | Date | extra"
+    // Format: "Company | Date" or "Company - Website | Date"
     if (beforeDate.includes('|')) {
       const parts = beforeDate.split('|').map(p => p.trim()).filter(Boolean);
-      return { company: parts[0] || '', date };
+      // Take the first part as company (might be "Company - Website" or "Company (Description) - Website")
+      let company = parts[0] || '';
+      
+      // Clean up company name:
+      // Remove parenthetical descriptions: "WriteBookAI (AI SaaS for Authors)" -> "WriteBookAI"
+      company = company.replace(/\s*\([^)]*\)\s*/g, '').trim();
+      
+      // If company contains " - ", take the part before the dash (the actual company name)
+      if (company.includes(' - ')) {
+        company = company.split(' - ')[0].trim();
+      } else if (company.includes('–')) {
+        company = company.split('–')[0].trim();
+      }
+      
+      return { company, date };
     }
     
-    // Format: "Company - Date" or just "Date"
+    // Format: "Company - Date" or "Company - Website - Date"
     if (beforeDate) {
-      return { company: beforeDate, date };
+      // If it has multiple dashes, the company is before the first dash
+      let company = beforeDate;
+      if (beforeDate.includes(' - ')) {
+        company = beforeDate.split(' - ')[0].trim();
+      } else if (beforeDate.includes('–')) {
+        company = beforeDate.split('–')[0].trim();
+      }
+      // Remove parenthetical descriptions
+      company = company.replace(/\s*\([^)]*\)\s*/g, '').trim();
+      return { company, date };
     }
     
     // Date only, company might be on previous line
