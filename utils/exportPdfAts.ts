@@ -1,19 +1,20 @@
-import jsPDF from 'jspdf';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { ResumeData } from '@/types/resume';
 import { LayoutSettings, PAGE_DIMENSIONS, MARGIN_VALUES } from '@/types/layout';
 
 /**
- * ATS-Friendly PDF Export
+ * ATS-Friendly PDF Export using pdf-lib
  *
  * Produces a **text-based PDF** (native text, no images). ATS systems can parse
  * and extract keywords from this format. Use this for job applications.
  *
- * Contrast: exportToPdf() creates image-based PDFs (high-quality for viewing/
- * print) but many ATS cannot parse those.
+ * Uses pdf-lib instead of jsPDF to avoid text corruption issues.
  */
 
 const DEFAULT_MARGIN_MM = 12;
-const FONT = 'helvetica';
+
+// Convert mm to points (1 mm = 2.83465 points)
+const mmToPoints = (mm: number) => mm * 2.83465;
 
 export async function exportToPdfAts(
   resumeData: ResumeData,
@@ -26,53 +27,96 @@ export async function exportToPdfAts(
   const pageDim = PAGE_DIMENSIONS[pageSize];
   const marginMm = settings.margin ? MARGIN_VALUES[settings.margin].value : DEFAULT_MARGIN_MM;
 
-  const pdf = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: pageSize,
-    compress: true,
-  });
+  // Create PDF document
+  const pdfDoc = await PDFDocument.create();
+  
+  // Embed fonts
+  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  const pageW = pageDim.width;
-  const pageH = pageDim.height;
-  const contentW = pageW - 2 * marginMm;
-  const contentLeft = marginMm;
-  const centerX = pageW / 2;
-  let y = marginMm;
-  const fontSize = settings.fontSize || 11;
-  const lineHeightMm = fontSize * 0.45;
-  const headingSize = Math.round(fontSize * 1.3);
-  const nameSize = Math.round(fontSize * 2);
+  // Page dimensions in points
+  const pageWidth = mmToPoints(pageDim.width);
+  const pageHeight = mmToPoints(pageDim.height);
+  const margin = mmToPoints(marginMm);
+  const contentWidth = pageWidth - 2 * margin;
+  
+  // Font sizes
+  const baseFontSize = settings.fontSize || 11;
+  const headingSize = Math.round(baseFontSize * 1.3);
+  const nameSize = Math.round(baseFontSize * 1.8);
+  const lineHeight = baseFontSize * 1.4;
+  
+  // Colors
+  const blueColor = rgb(37/255, 99/255, 235/255);
+  const blackColor = rgb(0, 0, 0);
 
-  function checkNewPage(neededMm: number): void {
-    if (y + neededMm > pageH - marginMm) {
-      pdf.addPage();
-      y = marginMm;
+  // Track current page and Y position
+  let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+  let y = pageHeight - margin;
+
+  /**
+   * Sanitize text to remove problematic characters
+   */
+  function sanitizeText(text: string): string {
+    if (!text) return '';
+    
+    return text
+      // Normalize unicode characters
+      .normalize('NFKC')
+      // Replace smart quotes with straight quotes
+      .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+      .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+      // Replace en-dash and em-dash with hyphen
+      .replace(/[\u2013\u2014]/g, '-')
+      // Replace bullet points with standard bullet
+      .replace(/[\u2022\u2023\u2043\u204C\u204D]/g, '*')
+      // Replace ellipsis
+      .replace(/\u2026/g, '...')
+      // Remove zero-width characters
+      .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+      // Replace non-breaking space
+      .replace(/\u00A0/g, ' ')
+      // Remove other problematic unicode
+      .replace(/[^\x00-\x7F\u00C0-\u00FF]/g, (char) => {
+        // Keep common accented characters, replace others with space
+        return ' ';
+      })
+      // Normalize whitespace
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
+   * Check if we need a new page
+   */
+  function checkNewPage(neededHeight: number): void {
+    if (y - neededHeight < margin) {
+      currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+      y = pageHeight - margin;
     }
   }
 
   /**
-   * Manually wrap text to avoid jsPDF corruption issues
+   * Wrap text to fit within content width
    */
-  function wrapText(text: string, maxWidthMm: number, fontSizePt: number): string[] {
+  function wrapText(text: string, font: typeof fontRegular, fontSize: number): string[] {
+    const sanitized = sanitizeText(text);
+    if (!sanitized) return [];
+    
+    const words = sanitized.split(' ');
     const lines: string[] = [];
-    const words = text.split(' ');
     let currentLine = '';
-    
-    // Approximate: 1 character ≈ fontSizePt * 0.5 / 2.83465 mm
-    const charWidthMm = (fontSizePt * 0.5) / 2.83465;
-    const maxChars = Math.floor(maxWidthMm / charWidthMm);
-    
+
     for (const word of words) {
       const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const width = font.widthOfTextAtSize(testLine, fontSize);
       
-      if (testLine.length <= maxChars) {
+      if (width <= contentWidth) {
         currentLine = testLine;
       } else {
         if (currentLine) {
           lines.push(currentLine);
         }
-        // If single word is too long, force it on new line
         currentLine = word;
       }
     }
@@ -81,133 +125,173 @@ export async function exportToPdfAts(
       lines.push(currentLine);
     }
     
-    return lines.length > 0 ? lines : [''];
+    return lines;
   }
 
+  /**
+   * Add text to PDF
+   */
   function addText(
     text: string,
-    opts: { size?: number; bold?: boolean; align?: 'left' | 'center' } = {}
+    options: {
+      fontSize?: number;
+      bold?: boolean;
+      color?: typeof blackColor;
+      align?: 'left' | 'center';
+    } = {}
   ): void {
-    if (!text || !text.trim()) return;
+    const fontSize = options.fontSize || baseFontSize;
+    const font = options.bold ? fontBold : fontRegular;
+    const color = options.color || blackColor;
+    const align = options.align || 'left';
     
-    // Normalize text but preserve important characters
-    const cleanText = text
-      .replace(/\r\n/g, ' ')
-      .replace(/\n/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const lines = wrapText(text, font, fontSize);
+    if (lines.length === 0) return;
     
-    const size = opts.size ?? fontSize;
-    pdf.setFont(FONT, opts.bold ? 'bold' : 'normal');
-    pdf.setFontSize(size);
-    
-    // Manual text wrapping to avoid jsPDF corruption
-    const wrappedLines = wrapText(cleanText, contentW, size);
-    const lineHeight = lineHeightMm * (size / fontSize);
-    const totalHeight = wrappedLines.length * lineHeight;
-    
+    const totalHeight = lines.length * lineHeight;
     checkNewPage(totalHeight);
     
-    const x = opts.align === 'center' ? centerX : contentLeft;
-    
-    // Add each line individually to avoid corruption
-    wrappedLines.forEach((line, idx) => {
-      const yPos = y + (idx * lineHeight);
-      pdf.text(line, x, yPos, { align: opts.align || 'left' });
-    });
-    
-    y += totalHeight;
+    for (const line of lines) {
+      const textWidth = font.widthOfTextAtSize(line, fontSize);
+      let x = margin;
+      
+      if (align === 'center') {
+        x = (pageWidth - textWidth) / 2;
+      }
+      
+      currentPage.drawText(line, {
+        x,
+        y,
+        size: fontSize,
+        font,
+        color,
+      });
+      
+      y -= lineHeight;
+    }
   }
 
-  function addSpace(mm: number): void {
-    y += mm;
+  /**
+   * Add vertical space
+   */
+  function addSpace(points: number): void {
+    y -= points;
+    if (y < margin) {
+      currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
+      y = pageHeight - margin;
+    }
   }
 
   // --- Header ---
   if (header.name) {
-    pdf.setFont(FONT, 'bold');
-    pdf.setFontSize(nameSize);
-    pdf.setTextColor(30, 58, 138);
-    const nameLines = pdf.splitTextToSize(header.name, contentW);
-    const nameH = nameLines.length * lineHeightMm * (nameSize / fontSize);
-    checkNewPage(nameH);
-    pdf.text(nameLines, centerX, y, { align: 'center' });
-    y += nameH;
-    pdf.setTextColor(0, 0, 0);
+    addText(header.name, { fontSize: nameSize, bold: true, color: blueColor, align: 'center' });
   }
   if (header.title) {
-    addText(header.title, { size: Math.round(fontSize * 1.1), align: 'center' });
+    addText(header.title, { fontSize: Math.round(baseFontSize * 1.1), align: 'center' });
   }
+  
   const contactParts = [header.contact.email, header.contact.phone, header.contact.linkedin, header.contact.github]
     .filter(Boolean)
     .join(' | ');
   if (contactParts) addText(contactParts, { align: 'center' });
+  
   const locParts = [header.contact.location, header.contact.workAuthorization].filter(Boolean);
   if (locParts.length) addText(`Location: ${locParts.join(' | ')}`, { align: 'center' });
+  
   const relParts = [header.contact.relocation, header.contact.travel].filter(Boolean);
   if (relParts.length) addText(`Relocation: ${relParts.join(' | ')}`, { align: 'center' });
-  addSpace(6);
+  
+  addSpace(15);
 
   // --- Professional Summary ---
   if (sectionVisibility?.summary !== false && summary) {
-    pdf.setTextColor(37, 99, 235);
-    addText('PROFESSIONAL SUMMARY', { size: headingSize, bold: true });
-    pdf.setTextColor(0, 0, 0);
-    addText(summary);
+    addText('PROFESSIONAL SUMMARY', { fontSize: headingSize, bold: true, color: blueColor });
     addSpace(5);
+    addText(summary);
+    addSpace(15);
   }
 
   // --- Technical Skills ---
   if (sectionVisibility?.skills !== false && skills.length > 0) {
-    pdf.setTextColor(37, 99, 235);
-    addText('TECHNICAL SKILLS', { size: headingSize, bold: true });
-    pdf.setTextColor(0, 0, 0);
-    skills.forEach((s) => addText(`${s.category}: ${s.skills}`));
+    addText('TECHNICAL SKILLS', { fontSize: headingSize, bold: true, color: blueColor });
     addSpace(5);
+    skills.forEach((s) => {
+      addText(`${s.category}: ${s.skills}`);
+    });
+    addSpace(15);
   }
 
   // --- Professional Experience ---
-  pdf.setTextColor(37, 99, 235);
-  addText('PROFESSIONAL EXPERIENCE', { size: headingSize, bold: true });
-  pdf.setTextColor(0, 0, 0);
+  if (experience.length > 0) {
+    addText('PROFESSIONAL EXPERIENCE', { fontSize: headingSize, bold: true, color: blueColor });
+    addSpace(5);
 
-  experience.forEach((exp, idx) => {
-    if (idx > 0) addSpace(4);
-    addText(exp.role, { bold: true, size: Math.round(fontSize * 1.1) });
-    addText(`${exp.company} | ${exp.period}`);
-    if (exp.clientNote) addText(exp.clientNote);
-    if (exp.description) addText(exp.description);
-    exp.bullets.forEach((b) => addText(`• ${b}`));
-    if (exp.achievements?.length) {
-      addText('Key Achievements:', { bold: true });
-      exp.achievements.forEach((a) => addText(`• ${a}`));
-    }
-  });
-  addSpace(5);
+    experience.forEach((exp, idx) => {
+      if (idx > 0) addSpace(10);
+      
+      if (exp.role) {
+        addText(exp.role, { bold: true, fontSize: Math.round(baseFontSize * 1.05) });
+      }
+      
+      const companyLine = [exp.company, exp.period].filter(Boolean).join(' | ');
+      if (companyLine) addText(companyLine);
+      
+      if (exp.clientNote) addText(exp.clientNote);
+      if (exp.description) addText(exp.description);
+      
+      exp.bullets.forEach((bullet) => {
+        addText(`* ${bullet}`);
+      });
+      
+      if (exp.achievements?.length) {
+        addSpace(5);
+        addText('Key Achievements:', { bold: true });
+        exp.achievements.forEach((achievement) => {
+          addText(`* ${achievement}`);
+        });
+      }
+    });
+    addSpace(15);
+  }
 
   // --- Education ---
   if (sectionVisibility?.education !== false && education.length > 0) {
-    pdf.setTextColor(37, 99, 235);
-    addText('EDUCATION', { size: headingSize, bold: true });
-    pdf.setTextColor(0, 0, 0);
-    education.forEach((edu) => {
-      addText(edu.degree, { bold: true });
-      addText(`${edu.institution} | ${edu.location}`);
-    });
+    addText('EDUCATION', { fontSize: headingSize, bold: true, color: blueColor });
     addSpace(5);
+    education.forEach((edu) => {
+      if (edu.degree) addText(edu.degree, { bold: true });
+      const institutionLine = [edu.institution, edu.location].filter(Boolean).join(' | ');
+      if (institutionLine) addText(institutionLine);
+    });
+    addSpace(15);
   }
 
   // --- General Sections ---
   if (sectionVisibility?.expertise && generalSections.length > 0) {
-    pdf.setTextColor(37, 99, 235);
-    addText('GENERAL SECTIONS', { size: headingSize, bold: true });
-    pdf.setTextColor(0, 0, 0);
-    generalSections.forEach((s) => {
-      if (s.title.trim()) addText(s.title, { bold: true, size: Math.round(fontSize * 1.1) });
-      if (s.summary.trim()) addText(s.summary);
-      addSpace(3);
+    addText('ADDITIONAL INFORMATION', { fontSize: headingSize, bold: true, color: blueColor });
+    addSpace(5);
+    generalSections.forEach((section) => {
+      if (section.title.trim()) {
+        addText(section.title, { bold: true, fontSize: Math.round(baseFontSize * 1.05) });
+      }
+      if (section.summary.trim()) {
+        addText(section.summary);
+      }
+      addSpace(8);
     });
   }
 
-  pdf.save(filename);
+  // Save PDF
+  const pdfBytes = await pdfDoc.save();
+  
+  // Download - cast to BlobPart to satisfy TypeScript
+  const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
