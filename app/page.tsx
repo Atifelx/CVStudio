@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Upload, Edit3, Plus, RefreshCw, Star, Zap, Shield, FileDown } from 'lucide-react';
 import { ResumeProvider, useResume } from '@/context/ResumeContext';
+import StoreProvider from '@/components/StoreProvider';
 import { LayoutProvider } from '@/context/LayoutContext';
 import Toolbar from '@/components/Toolbar';
 import ATSScorePanel from '@/components/ATSScorePanel';
@@ -418,10 +419,12 @@ function MainContent() {
 
 export default function ResumePage() {
   return (
-    <ResumeProvider>
-      <LayoutProvider>
-        <MainContent />
-      </LayoutProvider>
-    </ResumeProvider>
+    <StoreProvider>
+      <ResumeProvider>
+        <LayoutProvider>
+          <MainContent />
+        </LayoutProvider>
+      </ResumeProvider>
+    </StoreProvider>
   );
 }

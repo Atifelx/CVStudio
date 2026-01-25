@@ -19,6 +19,7 @@ import {
   ArrowUpDown,
   User,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { useResume } from '@/context/ResumeContext';
 import { useLayout } from '@/context/LayoutContext';
@@ -38,7 +39,7 @@ import {
  * Enhanced Toolbar with Auto-Balance button
  */
 export default function Toolbar() {
-  const { resumeData } = useResume();
+  const { resumeData, resetResume } = useResume();
   const {
     settings,
     setFontSize,
@@ -208,6 +209,14 @@ export default function Toolbar() {
             >
               {isExportingPdf ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
               PDF
+            </button>
+            <button
+              onClick={() => window.confirm('Clear all resume data? This cannot be undone.') && resetResume()}
+              title="Clear stored resume data (persisted in browser). Refresh keeps data until cleared."
+              className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-red-100 hover:text-red-700 text-xs font-medium border border-gray-300"
+            >
+              <Trash2 size={14} />
+              Clear Data
             </button>
           </div>
         </div>

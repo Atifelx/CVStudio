@@ -1,44 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { ResumeData, SectionType } from '@/types/resume';
+import React, { createContext, useContext, useCallback, ReactNode } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import type { ResumeData, SectionType } from '@/types/resume';
+import { setResumeData as setResumeDataAction, setEditingSection as setEditingSectionAction, setEditingItemId as setEditingItemIdAction, clearData } from '@/store/resumeSlice';
+import { persistor } from '@/store';
+import type { RootState } from '@/store';
 
-/**
- * BLANK SKELETON RESUME
- * 
- * Users upload their own resume to populate this data
- * All fields start empty - no pre-filled content
- */
-const initialResumeData: ResumeData = {
-  header: {
-    name: '',
-    title: '',
-    contact: {
-      email: '',
-      phone: '',
-      linkedin: '',
-      github: '',
-      location: '',
-      workAuthorization: '',
-      relocation: '',
-      travel: '',
-    },
-  },
-  summary: '',
-  skills: [],
-  experience: [],
-  education: [],
-  forwardDeployedExpertise: '',
-  generalSections: [],
-  sectionVisibility: {
-    expertise: false,
-    summary: true,
-    skills: true,
-    education: true,
-  },
-};
-
-// Context type
 interface ResumeContextType {
   resumeData: ResumeData;
   setResumeData: React.Dispatch<React.SetStateAction<ResumeData>>;
@@ -46,34 +14,55 @@ interface ResumeContextType {
   setEditingSection: React.Dispatch<React.SetStateAction<SectionType | null>>;
   editingItemId: string | null;
   setEditingItemId: React.Dispatch<React.SetStateAction<string | null>>;
-  hasData: boolean; // Track if user has uploaded/entered data
-  resetResume: () => void; // Reset to blank state
+  hasData: boolean;
+  resetResume: () => void;
 }
 
-// Create context
 const ResumeContext = createContext<ResumeContextType | undefined>(undefined);
 
-// Provider component
 export function ResumeProvider({ children }: { children: ReactNode }) {
-  const [resumeData, setResumeData] = useState<ResumeData>(initialResumeData);
-  const [editingSection, setEditingSection] = useState<SectionType | null>(null);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const dispatch = useDispatch();
+  const resumeData = useSelector((s: RootState) => s.resume.resumeData);
+  const editingSection = useSelector((s: RootState) => s.resume.editingSection);
+  const editingItemId = useSelector((s: RootState) => s.resume.editingItemId);
 
-  // Check if user has entered any data
   const hasData = Boolean(
     resumeData.header.name ||
     resumeData.summary ||
     resumeData.skills.length > 0 ||
     resumeData.experience.length > 0 ||
-    resumeData.education.length > 0
+    resumeData.education.length > 0 ||
+    (resumeData.generalSections?.length ?? 0) > 0
   );
 
-  // Reset to blank state
-  const resetResume = () => {
-    setResumeData(initialResumeData);
-    setEditingSection(null);
-    setEditingItemId(null);
-  };
+  const setResumeData = useCallback(
+    (action: React.SetStateAction<ResumeData>) => {
+      const next = typeof action === 'function' ? action(resumeData) : action;
+      dispatch(setResumeDataAction(next));
+    },
+    [dispatch, resumeData]
+  );
+
+  const setEditingSection = useCallback(
+    (action: React.SetStateAction<SectionType | null>) => {
+      const next = typeof action === 'function' ? action(editingSection) : action;
+      dispatch(setEditingSectionAction(next));
+    },
+    [dispatch, editingSection]
+  );
+
+  const setEditingItemId = useCallback(
+    (action: React.SetStateAction<string | null>) => {
+      const next = typeof action === 'function' ? action(editingItemId) : action;
+      dispatch(setEditingItemIdAction(next));
+    },
+    [dispatch, editingItemId]
+  );
+
+  const resetResume = useCallback(() => {
+    dispatch(clearData());
+    void persistor.purge();
+  }, [dispatch]);
 
   return (
     <ResumeContext.Provider
@@ -93,11 +82,10 @@ export function ResumeProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Custom hook for using the context
 export function useResume() {
-  const context = useContext(ResumeContext);
-  if (context === undefined) {
+  const ctx = useContext(ResumeContext);
+  if (ctx === undefined) {
     throw new Error('useResume must be used within a ResumeProvider');
   }
-  return context;
+  return ctx;
 }
