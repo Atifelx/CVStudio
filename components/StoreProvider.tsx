@@ -16,7 +16,21 @@ interface StoreProviderProps {
 export default function StoreProvider({ children }: StoreProviderProps) {
   return (
     <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
+      <PersistGate 
+        loading={
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            minHeight: '100vh',
+            fontSize: '14px',
+            color: '#666'
+          }}>
+            Loading resume data...
+          </div>
+        } 
+        persistor={persistor}
+      >
         {children}
       </PersistGate>
     </Provider>
