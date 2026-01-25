@@ -6,6 +6,7 @@ import { useResume } from '@/context/ResumeContext';
 import ResumeSection from '@/components/ResumeSection';
 import { InputField } from '@/components/EditSection';
 import { EducationItem } from '@/types/resume';
+import { usePageBreakPrevention } from '@/hooks/usePageBreakPrevention';
 
 /**
  * Education section component
@@ -191,20 +192,45 @@ export default function EducationSection() {
         isEditing={isEditing}
       >
         {education.map((edu, index) => (
-          <div 
-            key={edu.id} 
-            className="education-entry"
-            style={{ marginBottom: index < education.length - 1 ? 'var(--resume-paragraph-gap)' : 0 }}
-          >
-            <h4 className="font-bold text-gray-800" style={{ fontSize: 'calc(var(--resume-font-size) * 1.05)' }}>
-              {edu.degree}
-            </h4>
-            <p className="text-gray-600" style={{ fontSize: 'var(--resume-font-size)' }}>
-              {edu.institution} | {edu.location}
-            </p>
-          </div>
+          <EducationEntry
+            key={edu.id}
+            edu={edu}
+            index={index}
+            isLast={index === education.length - 1}
+          />
         ))}
       </ResumeSection>
+    </div>
+  );
+}
+
+/**
+ * Individual education entry component with page break prevention
+ */
+function EducationEntry({ 
+  edu, 
+  index, 
+  isLast 
+}: { 
+  edu: EducationItem; 
+  index: number; 
+  isLast: boolean;
+}) {
+  const { ref, style: breakStyle } = usePageBreakPrevention<HTMLDivElement>(true);
+  const baseStyle = { marginBottom: !isLast ? 'var(--resume-paragraph-gap)' : 0 };
+  
+  return (
+    <div 
+      ref={ref}
+      className="education-entry"
+      style={{ ...baseStyle, ...breakStyle }}
+    >
+      <h4 className="font-bold text-gray-800" style={{ fontSize: 'calc(var(--resume-font-size) * 1.05)' }}>
+        {edu.degree}
+      </h4>
+      <p className="text-gray-600" style={{ fontSize: 'var(--resume-font-size)' }}>
+        {edu.institution} | {edu.location}
+      </p>
     </div>
   );
 }

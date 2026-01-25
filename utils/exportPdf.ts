@@ -59,6 +59,22 @@ export async function exportToPdf(
     `;
     document.body.appendChild(loadingDiv);
 
+    // Wait for fonts to load before capturing
+    await document.fonts.ready;
+    
+    // Small delay to ensure all styles are applied
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // Add class to ensure proper rendering during export
+    element.classList.add('pdf-export-active');
+    
+    // Ensure the container has proper styles for export
+    const container = element.closest('.resume-container') || element;
+    const originalOverflow = container instanceof HTMLElement ? container.style.overflow : '';
+    if (container instanceof HTMLElement) {
+      container.style.overflow = 'visible';
+    }
+    
     // Hide no-print elements before capturing
     const noPrintElements = element.querySelectorAll('.no-print');
     const originalDisplays: (string | null)[] = [];
@@ -68,9 +84,9 @@ export async function exportToPdf(
       htmlEl.style.display = 'none';
     });
 
-    // OPTIMIZED canvas capture - scale 2 is good quality but smaller file
+    // IMPROVED canvas capture - higher scale for crisp text, better quality
     const canvas = await html2canvas(element, {
-      scale: 2,  // Reduced from 3 - still sharp, much smaller file
+      scale: 3,  // Increased to 3 for better text quality
       useCORS: true,
       allowTaint: true,
       backgroundColor: '#ffffff',
@@ -78,6 +94,14 @@ export async function exportToPdf(
       imageTimeout: 0,
       width: element.scrollWidth,
       height: element.scrollHeight,
+      windowWidth: element.scrollWidth,
+      windowHeight: element.scrollHeight,
+      // Better text rendering
+      letterRendering: true,
+      // Preserve exact styling
+      foreignObjectRendering: false,
+      // Better quality rendering
+      removeContainer: false,
     });
 
     // Restore original display styles
@@ -85,6 +109,14 @@ export async function exportToPdf(
       const htmlEl = el as HTMLElement;
       htmlEl.style.display = originalDisplays[index] || '';
     });
+    
+    // Restore container overflow
+    if (container instanceof HTMLElement) {
+      container.style.overflow = originalOverflow;
+    }
+    
+    // Remove export class
+    element.classList.remove('pdf-export-active');
 
     // Create PDF with COMPRESSION enabled
     const pdf = new jsPDF({
@@ -100,14 +132,15 @@ export async function exportToPdf(
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const pageContentHeight = pdfHeight - (marginMm * 2);
 
-    // Use JPEG with 85% quality - much smaller than PNG, still looks good
-    const imgData = canvas.toDataURL('image/jpeg', 0.85);
+    // Use PNG for better text quality (no compression artifacts)
+    // PNG preserves exact pixel-perfect rendering
+    const imgData = canvas.toDataURL('image/png');
 
     if (imgHeight <= pageContentHeight) {
       // Single page
       pdf.addImage(
         imgData,
-        'JPEG',
+        'PNG',
         marginMm,
         marginMm,
         imgWidth,
@@ -154,11 +187,11 @@ export async function exportToPdf(
           );
         }
 
-        // JPEG with 85% quality
-        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.85);
+        // Use PNG for better text quality (no compression artifacts)
+        const pageImgData = pageCanvas.toDataURL('image/png');
         pdf.addImage(
           pageImgData,
-          'JPEG',
+          'PNG',
           marginMm,
           marginMm,
           imgWidth,

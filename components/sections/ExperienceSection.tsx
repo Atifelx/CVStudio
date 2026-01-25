@@ -6,6 +6,7 @@ import { useResume } from '@/context/ResumeContext';
 import ResumeSection from '@/components/ResumeSection';
 import EditSection, { InputField, TextAreaField } from '@/components/EditSection';
 import { ExperienceItem } from '@/types/resume';
+import { usePageBreakPrevention } from '@/hooks/usePageBreakPrevention';
 
 /**
  * Professional Experience section component
@@ -275,60 +276,85 @@ export default function ExperienceSection() {
     <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection title="PROFESSIONAL EXPERIENCE" onEdit={handleEdit} isEditing={isEditing}>
         {experience.map((exp, index) => (
-          <div
+          <ExperienceEntry
             key={exp.id}
-            className="experience-entry"
-            style={{ marginBottom: index < experience.length - 1 ? 'var(--resume-experience-gap)' : 0 }}
-          >
-            <div className="flex justify-between items-start" style={{ marginBottom: 'var(--resume-bullet-gap)' }}>
-              <div>
-                <h4 className="font-bold text-gray-800" style={{ fontSize: 'calc(var(--resume-font-size) * 1.1)' }}>
-                  {exp.role}
-                </h4>
-                <p className="text-gray-600 font-semibold" style={{ fontSize: 'var(--resume-font-size)' }}>
-                  {exp.company}
-                </p>
-              </div>
-              <span className="text-gray-600" style={{ fontSize: 'calc(var(--resume-font-size) * 0.9)' }}>
-                {exp.period}
-              </span>
-            </div>
-
-            {exp.clientNote && (
-              <p className="text-gray-600 italic" style={{ fontSize: 'calc(var(--resume-font-size) * 0.9)', marginBottom: 'var(--resume-bullet-gap)' }}>
-                {exp.clientNote}
-              </p>
-            )}
-
-            {exp.description && (
-              <p className="text-gray-700" style={{ fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)', marginBottom: 'var(--resume-paragraph-gap)' }}>
-                {exp.description}
-              </p>
-            )}
-
-            {exp.bullets.length > 0 && (
-              <ul className="list-disc ml-5 text-gray-700" style={{ fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)' }}>
-                {exp.bullets.map((bullet, idx) => (
-                  <li key={idx} style={{ marginBottom: 'var(--resume-bullet-gap)' }} dangerouslySetInnerHTML={{ __html: formatBullet(bullet) }} />
-                ))}
-              </ul>
-            )}
-
-            {exp.achievements && exp.achievements.length > 0 && (
-              <div className="bg-blue-50 p-3 rounded" style={{ marginTop: 'var(--resume-paragraph-gap)' }}>
-                <p className="font-semibold text-gray-800" style={{ fontSize: 'var(--resume-font-size)', marginBottom: 'var(--resume-bullet-gap)' }}>
-                  Key Achievements:
-                </p>
-                <ul className="list-disc ml-5 text-gray-700" style={{ fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)' }}>
-                  {exp.achievements.map((achievement, idx) => (
-                    <li key={idx} style={{ marginBottom: 'var(--resume-bullet-gap)' }}>{achievement}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+            exp={exp}
+            index={index}
+            isLast={index === experience.length - 1}
+          />
         ))}
       </ResumeSection>
+    </div>
+  );
+}
+
+/**
+ * Individual experience entry component with page break prevention
+ */
+function ExperienceEntry({ 
+  exp, 
+  index, 
+  isLast 
+}: { 
+  exp: ExperienceItem; 
+  index: number; 
+  isLast: boolean;
+}) {
+  const { ref, style: breakStyle } = usePageBreakPrevention<HTMLDivElement>(true);
+  const baseStyle = { marginBottom: !isLast ? 'var(--resume-experience-gap)' : 0 };
+  
+  return (
+    <div
+      ref={ref}
+      className="experience-entry"
+      style={{ ...baseStyle, ...breakStyle }}
+    >
+      <div className="flex justify-between items-start" style={{ marginBottom: 'var(--resume-bullet-gap)' }}>
+        <div>
+          <h4 className="font-bold text-gray-800" style={{ fontSize: 'calc(var(--resume-font-size) * 1.1)' }}>
+            {exp.role}
+          </h4>
+          <p className="text-gray-600 font-semibold" style={{ fontSize: 'var(--resume-font-size)' }}>
+            {exp.company}
+          </p>
+        </div>
+        <span className="text-gray-600" style={{ fontSize: 'calc(var(--resume-font-size) * 0.9)' }}>
+          {exp.period}
+        </span>
+      </div>
+
+      {exp.clientNote && (
+        <p className="text-gray-600 italic" style={{ fontSize: 'calc(var(--resume-font-size) * 0.9)', marginBottom: 'var(--resume-bullet-gap)' }}>
+          {exp.clientNote}
+        </p>
+      )}
+
+      {exp.description && (
+        <p className="text-gray-700" style={{ fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)', marginBottom: 'var(--resume-paragraph-gap)' }}>
+          {exp.description}
+        </p>
+      )}
+
+      {exp.bullets.length > 0 && (
+        <ul className="list-disc ml-5 text-gray-700" style={{ fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)' }}>
+          {exp.bullets.map((bullet, idx) => (
+            <li key={idx} style={{ marginBottom: 'var(--resume-bullet-gap)' }} dangerouslySetInnerHTML={{ __html: formatBullet(bullet) }} />
+          ))}
+        </ul>
+      )}
+
+      {exp.achievements && exp.achievements.length > 0 && (
+        <div className="bg-blue-50 p-3 rounded" style={{ marginTop: 'var(--resume-paragraph-gap)' }}>
+          <p className="font-semibold text-gray-800" style={{ fontSize: 'var(--resume-font-size)', marginBottom: 'var(--resume-bullet-gap)' }}>
+            Key Achievements:
+          </p>
+          <ul className="list-disc ml-5 text-gray-700" style={{ fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)' }}>
+            {exp.achievements.map((achievement, idx) => (
+              <li key={idx} style={{ marginBottom: 'var(--resume-bullet-gap)' }}>{achievement}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

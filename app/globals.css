@@ -288,6 +288,19 @@ body {
     box-shadow: none !important;
     max-width: 100% !important;
     margin: 0 !important;
+    /* Ensure proper spacing is preserved */
+    padding: 0 !important;
+    /* Prevent text compression */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Ensure proper line spacing */
+  .resume-container * {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Page break handling - avoid breaking inside elements */
@@ -296,6 +309,7 @@ body {
   .resume-container .skill-category {
     page-break-inside: avoid;
     break-inside: avoid;
+    -webkit-region-break-inside: avoid;
   }
 
   /* Keep headers with content */
@@ -313,8 +327,21 @@ body {
     widows: 3;
   }
 
-  /* Allow breaks between major sections */
+  /* Prevent breaking inside list items */
+  .resume-container li {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Allow breaks between major sections but not inside them */
   .resume-container .resume-section {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  
+  /* Additional protection for nested elements */
+  .resume-container .experience-entry > *,
+  .resume-container .education-entry > * {
     page-break-inside: avoid;
     break-inside: avoid;
   }
@@ -341,6 +368,23 @@ body {
   .page-number-label {
     display: none;
   }
+}
+
+/* ==========================================================================
+   PDF Export Optimizations
+   ========================================================================== */
+
+/* Ensure proper rendering during PDF export */
+.pdf-export-active,
+.pdf-export-active * {
+  text-rendering: optimizeLegibility !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  /* Prevent text compression */
+  letter-spacing: normal !important;
+  word-spacing: normal !important;
+  /* Ensure proper line height */
+  line-height: inherit !important;
 }
 
 /* ==========================================================================

@@ -6,6 +6,7 @@ import { useResume } from '@/context/ResumeContext';
 import ResumeSection from '@/components/ResumeSection';
 import EditSection, { InputField, TextAreaField } from '@/components/EditSection';
 import { SkillCategory } from '@/types/resume';
+import { usePageBreakPrevention } from '@/hooks/usePageBreakPrevention';
 
 /**
  * Technical Skills section component
@@ -209,21 +210,46 @@ export default function SkillsSection() {
       >
         <div>
           {skills.map((skill, index) => (
-            <div 
-              key={skill.id} 
-              className="skill-category"
-              style={{ 
-                marginBottom: index < skills.length - 1 ? 'var(--resume-bullet-gap)' : 0,
-                fontSize: 'var(--resume-font-size)',
-                lineHeight: 'var(--resume-line-height)'
-              }}
-            >
-              <strong className="text-gray-800">{skill.category}:</strong>
-              <span className="text-gray-700"> {skill.skills}</span>
-            </div>
+            <SkillCategoryEntry
+              key={skill.id}
+              skill={skill}
+              index={index}
+              isLast={index === skills.length - 1}
+            />
           ))}
         </div>
       </ResumeSection>
+    </div>
+  );
+}
+
+/**
+ * Individual skill category component with page break prevention
+ */
+function SkillCategoryEntry({ 
+  skill, 
+  index, 
+  isLast 
+}: { 
+  skill: SkillCategory; 
+  index: number; 
+  isLast: boolean;
+}) {
+  const { ref, style: breakStyle } = usePageBreakPrevention<HTMLDivElement>(true);
+  const baseStyle = { 
+    marginBottom: !isLast ? 'var(--resume-bullet-gap)' : 0,
+    fontSize: 'var(--resume-font-size)',
+    lineHeight: 'var(--resume-line-height)'
+  };
+  
+  return (
+    <div 
+      ref={ref}
+      className="skill-category"
+      style={{ ...baseStyle, ...breakStyle }}
+    >
+      <strong className="text-gray-800">{skill.category}:</strong>
+      <span className="text-gray-700"> {skill.skills}</span>
     </div>
   );
 }
