@@ -532,12 +532,14 @@ function extractSectionContent(
 }
 
 /**
- * Parse experience section into structured data
- * Handles multiple formats:
- * - "Role | Company\nDate Range\n• bullets"
- * - "Role – Company\nDate Range\n• bullets"
- * - "Role at Company\nDate Range\n• bullets"
- * - "Role | Company | Date Range\n• bullets"
+ * Parse experience section - DATE-DRIVEN ANCHORING with duplicate prevention
+ * 
+ * Rules:
+ * 1. Dates are primary anchors - when found, look ABOVE and BELOW for company/title
+ * 2. Each (company + title + date) is ONE atomic block
+ * 3. Check for duplicates before creating new entry
+ * 4. Preserve ALL bullets exactly as they appear
+ * 5. Stop at section boundaries (Education, Skills, etc.)
  */
 function parseExperience(text: string): ExperienceItem[] {
   if (!text.trim()) return [];
@@ -545,39 +547,24 @@ function parseExperience(text: string): ExperienceItem[] {
   const experiences: ExperienceItem[] = [];
   const lines = text.split('\n').filter(l => l.trim());
   
-  let currentExp: Partial<ExperienceItem> | null = null;
-  let bullets: string[] = [];
-  let pendingProjectTitle: string | null = null;
-  let pendingProjectBody: string[] = [];
-
-  const flushCurrent = () => {
-    if (currentExp && (currentExp.role || currentExp.company)) {
-      if (pendingProjectTitle && pendingProjectBody.length > 0) {
-        const body = pendingProjectBody.join(' ').replace(/[ ]+/g, ' ').trim();
-        if (body) bullets.push(`${pendingProjectTitle} — ${body}`);
-        else bullets.push(pendingProjectTitle);
-      } else if (pendingProjectTitle) {
-        bullets.push(pendingProjectTitle);
-      }
-      pendingProjectTitle = null;
-      pendingProjectBody = [];
-
-      currentExp.bullets = bullets
-        .map((b) => b.trim())
-        .filter((b) => b.length > 5);
-
-      experiences.push({
-        id: `exp-${experiences.length + 1}`,
-        role: currentExp.role || '',
-        company: currentExp.company || '',
-        period: currentExp.period || '',
-        description: '',
-        bullets: currentExp.bullets || [],
-      });
-    }
+  // Track seen entries to prevent duplicates: key = "company|title|date"
+  const seenKeys = new Set<string>();
+  
+  // Section boundary patterns - stop parsing when we hit these
+  const sectionBoundaryPattern = /^(education|skills|projects?|certifications?|awards|publications?|languages?|references?|summary|profile|objective)$/i;
+  
+  /**
+   * Create unique key for duplicate detection
+   */
+  const createKey = (company: string, role: string, period: string): string => {
+    return `${(company || '').toLowerCase().trim()}|${(role || '').toLowerCase().trim()}|${(period || '').toLowerCase().trim()}`;
   };
-
-  const parseRoleCompanyLine = (line: string): { role: string; company: string } | null => {
+  
+  /**
+   * Parse role and company from a line
+   * Supports: "Role | Company", "Role – Company", "Role at Company"
+   */
+  const parseRoleCompany = (line: string): { role: string; company: string } | null => {
     const cleaned = line.trim();
     if (!cleaned || cleaned.length > 150) return null;
 
@@ -587,7 +574,7 @@ function parseExperience(text: string): ExperienceItem[] {
       if (parts.length >= 2) {
         const role = parts[0].trim();
         const company = parts[1].trim();
-        if (role.length > 3 && role.length <= 100 && company.length > 2 && company.length <= 80) {
+        if (role.length >= 3 && role.length <= 100 && company.length >= 2 && company.length <= 80) {
           return { role, company };
         }
       }
@@ -598,7 +585,7 @@ function parseExperience(text: string): ExperienceItem[] {
     if (dashMatch) {
       const role = dashMatch[1].trim();
       const company = dashMatch[2].trim();
-      if (role.length > 3 && role.length <= 100 && company.length > 2 && company.length <= 80) {
+      if (role.length >= 3 && role.length <= 100 && company.length >= 2 && company.length <= 80) {
         return { role, company };
       }
     }
@@ -609,7 +596,7 @@ function parseExperience(text: string): ExperienceItem[] {
       if (parts.length >= 2) {
         const role = parts[0];
         const company = parts.slice(1).join(' at ').trim();
-        if (role.length > 3 && role.length <= 100 && company.length > 2 && company.length <= 80) {
+        if (role.length >= 3 && role.length <= 100 && company.length >= 2 && company.length <= 80) {
           return { role, company };
         }
       }
@@ -617,170 +604,205 @@ function parseExperience(text: string): ExperienceItem[] {
 
     return null;
   };
-
-  const isLikelyProjectHeading = (line: string): boolean => {
-    const l = line.trim();
-    if (!l || l.length < 6 || l.length > 90) return false;
-    if (PATTERNS.dateRange.test(l) || PATTERNS.dateRangeStandalone.test(l)) return false;
-    const hasSignal = /client|system|automation|chatbot|routing|monitoring|pipeline|integration|optimization|project|feature|tool|app|platform/i.test(l) || /:|\(|\)/.test(l);
-    const tooSentenceLike = /[.?!]$/.test(l);
-    return hasSignal && !tooSentenceLike;
-  };
-
-  const isDateLine = (line: string): boolean => {
-    return PATTERNS.dateRangeStandalone.test(line.trim()) || (PATTERNS.dateRange.test(line) && line.trim().length < 50);
+  
+  /**
+   * Extract date range from a line
+   */
+  const extractDate = (line: string): string | null => {
+    const match = line.match(PATTERNS.dateRange);
+    if (match) {
+      // Extract just the date part (before any | separator or extra text)
+      return match[0].trim();
+    }
+    return null;
   };
   
+  /**
+   * Check if line is a bullet point
+   */
+  const isBullet = (line: string): boolean => {
+    const trimmed = line.trim();
+    return /^[•\-*●]\s/.test(trimmed) || /^\d+[.)]\s/.test(trimmed);
+  };
+  
+  /**
+   * Extract bullet text (remove marker)
+   */
+  const extractBulletText = (line: string): string => {
+    return line.replace(/^[•\-*●]\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
+  };
+  
+  // DATE-DRIVEN PARSING: Find all date lines, then build entries around them
+  // Track which lines we've processed to avoid reprocessing bullets
+  const processedLines = new Set<number>();
+  
   for (let i = 0; i < lines.length; i++) {
+    if (processedLines.has(i)) continue;
+    
     const line = lines[i].trim();
     if (!line) continue;
     
-    const isBullet = line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || line.startsWith('●');
-    const dateMatch = line.match(PATTERNS.dateRange);
-    const isDateOnly = isDateLine(line);
-    
-    // Case 1: Date-only line or line with date + extra info (e.g., "Dec 2024 – Present" or "2023 – Dec 2024 | writebookai.com")
-    if (dateMatch && !isBullet) {
-      // Extract just the date part (before any | or extra text)
-      const datePart = dateMatch[0];
-      const beforeDate = line.substring(0, line.indexOf(datePart)).trim();
-      const afterDate = line.substring(line.indexOf(datePart) + datePart.length).trim();
-      
-      // If this looks like a standalone date line (date is the main content)
-      const isStandaloneDate = isDateLine(line) || (beforeDate.length < 10 && afterDate.length < 30);
-      
-      if (isStandaloneDate) {
-        // Look back for role/company on previous line
-        if (i > 0) {
-          const prevLine = lines[i - 1]?.trim() || '';
-          const headerCandidate = parseRoleCompanyLine(prevLine);
-          if (headerCandidate) {
-            flushCurrent();
-            bullets = [];
-            // Extract date from line (might have extra info like "2023 – Dec 2024 | writebookai.com")
-            currentExp = {
-              role: headerCandidate.role,
-              company: headerCandidate.company,
-              period: datePart, // Just the date part, not the URL
-            };
-            pendingProjectTitle = null;
-            pendingProjectBody = [];
-            continue;
-          }
-        }
-        
-        // If we have currentExp but no period, this might be the period
-        if (currentExp && !currentExp.period) {
-          currentExp.period = datePart;
-          continue;
-        }
-      }
+    // Stop at section boundaries
+    if (sectionBoundaryPattern.test(line)) {
+      break;
     }
     
-    // Case 2: Line with date AND role/company (e.g., "Role | Company | Dec 2024 – Present")
-    if (dateMatch && !isBullet) {
-      const beforeDate = line.substring(0, line.indexOf(dateMatch[0])).trim();
-      const afterDate = line.substring(line.indexOf(dateMatch[0]) + dateMatch[0].length).trim();
-      
-      // Try to parse role/company from before date
-      const parsed = parseRoleCompanyLine(beforeDate);
-      if (parsed) {
-        flushCurrent();
-        bullets = [];
-        currentExp = {
-          role: parsed.role,
-          company: parsed.company,
-          period: dateMatch[0],
-        };
-        pendingProjectTitle = null;
-        pendingProjectBody = [];
-        continue;
-      }
-      
-      // If no role/company before date, check if we have pending header
-      if (currentExp && !currentExp.period) {
-        currentExp.period = dateMatch[0];
-        continue;
-      }
-    }
-    
-    // Case 3: Bullet point
-    if (isBullet) {
-      if (pendingProjectTitle) {
-        const body = pendingProjectBody.join(' ').replace(/[ ]+/g, ' ').trim();
-        if (body) bullets.push(`${pendingProjectTitle} — ${body}`);
-        else bullets.push(pendingProjectTitle);
-        pendingProjectTitle = null;
-        pendingProjectBody = [];
-      }
-
-      const bulletText = line.replace(/^[•\-*●]\s*/, '').trim();
-      if (bulletText.length > 5) {
-        bullets.push(bulletText);
-      }
+    // Look for date ranges - these are our PRIMARY ANCHORS
+    const dateRange = extractDate(line);
+    if (!dateRange) {
+      // No date on this line - skip (bullets will be collected when we find their date anchor)
       continue;
     }
     
-    // Case 4: Potential role/company line - look ahead for date
-    const headerCandidate = parseRoleCompanyLine(line);
-    if (headerCandidate) {
-      // Check if next line is a date
-      const nextLine = lines[i + 1]?.trim() || '';
-      if (isDateLine(nextLine)) {
-        // This is a header; flush current entry if exists, then wait for date line
-        // The date line (next iteration) will create the new entry via Case 1
-        if (currentExp) {
-          flushCurrent();
-          bullets = [];
+    // Found a date anchor - build the experience entry around it
+    let role = '';
+    let company = '';
+    const bullets: string[] = [];
+    
+    // RULE 1: Look ABOVE the date line (previous 1-2 lines) for role/company
+    if (i > 0) {
+      const prevLine = lines[i - 1]?.trim() || '';
+      if (prevLine && !processedLines.has(i - 1)) {
+        const parsed = parseRoleCompany(prevLine);
+        if (parsed) {
+          role = parsed.role;
+          company = parsed.company;
+          processedLines.add(i - 1); // Mark as processed
+        } else if (prevLine.length > 5 && prevLine.length < 100 && !PATTERNS.dateRange.test(prevLine) && !isBullet(prevLine)) {
+          // Fallback: prev line might be role (if no separator found)
+          role = prevLine;
         }
-        continue;
       }
-      
-      // If we're not in an experience entry, this might start one
-      if (!currentExp) {
-        // Wait for date line - will be handled next iteration
-        continue;
-      }
-      
-      // If we're in an entry but this looks like a new header (no date on next line),
-      // it might be a project heading or company name
-      // Let it fall through to project heading detection
     }
     
-    // Case 5: Inside an experience entry - handle project headings and body text
-    if (currentExp) {
-      if (isLikelyProjectHeading(line)) {
-        if (pendingProjectTitle) {
-          const body = pendingProjectBody.join(' ').replace(/[ ]+/g, ' ').trim();
-          if (body) bullets.push(`${pendingProjectTitle} — ${body}`);
-          else bullets.push(pendingProjectTitle);
-        }
-        pendingProjectTitle = line;
-        pendingProjectBody = [];
-        continue;
-      }
-
-      if (pendingProjectTitle) {
-        if (!isDateLine(line) && !parseRoleCompanyLine(line)) {
-          pendingProjectBody.push(line);
-          continue;
+    // RULE 2: Also check if date line itself contains role/company (e.g., "Role | Company | Date")
+    if (!role || !company) {
+      const beforeDate = line.substring(0, line.indexOf(dateRange)).trim();
+      if (beforeDate) {
+        const parsed = parseRoleCompany(beforeDate);
+        if (parsed) {
+          role = parsed.role || role;
+          company = parsed.company || company;
         }
       }
-
-      // Fallback: company on separate line
-      if (!currentExp.company && line.length < 80 && !PATTERNS.dateRange.test(line)) {
-        currentExp.company = line;
+    }
+    
+    // RULE 3: Check for duplicate BEFORE creating entry
+    const key = createKey(company, role, dateRange);
+    if (seenKeys.has(key)) {
+      // DUPLICATE DETECTED - append bullets to existing entry instead of creating new one
+      const existing = experiences.find(e => 
+        createKey(e.company, e.role, e.period) === key
+      );
+      if (existing) {
+        // Collect bullets BELOW this date line until next entry/section
+        let j = i + 1;
+        while (j < lines.length && !processedLines.has(j)) {
+          const nextLine = lines[j]?.trim() || '';
+          if (!nextLine) {
+            j++;
+            continue;
+          }
+          
+          // Stop at section boundaries
+          if (sectionBoundaryPattern.test(nextLine)) break;
+          
+          // Stop at next date anchor (new entry)
+          const nextDate = extractDate(nextLine);
+          if (nextDate && !isBullet(nextLine)) {
+            // Check if this is a new entry (has role/company on previous line)
+            if (j > 0) {
+              const beforeNextDate = lines[j - 1]?.trim() || '';
+              if (parseRoleCompany(beforeNextDate)) {
+                break; // New entry starts here
+              }
+            }
+            // If we already have role/company for current entry, next date is new entry
+            if (role && company) break;
+          }
+          
+          // Collect ALL bullets - preserve exactly as they appear
+          if (isBullet(nextLine)) {
+            const bulletText = extractBulletText(nextLine);
+            if (bulletText.length > 0) {
+              existing.bullets.push(bulletText);
+            }
+          } else if (nextLine.length > 5 && !parseRoleCompany(nextLine) && !extractDate(nextLine) && !sectionBoundaryPattern.test(nextLine)) {
+            // Non-bullet text that's not a header/date/section - preserve as bullet
+            existing.bullets.push(nextLine);
+          }
+          
+          processedLines.add(j);
+          j++;
+        }
+      }
+      processedLines.add(i); // Mark date line as processed
+      continue; // Skip creating duplicate entry
+    }
+    
+    // Not a duplicate - create new entry
+    seenKeys.add(key);
+    processedLines.add(i); // Mark date line as processed
+    
+    // RULE 4: Collect bullets BELOW the date line until next entry/section
+    let j = i + 1;
+    while (j < lines.length && !processedLines.has(j)) {
+      const nextLine = lines[j]?.trim() || '';
+      if (!nextLine) {
+        j++;
         continue;
       }
-
-      // Long line without date - treat as achievement/bullet text
-      if (line.length > 20 && !PATTERNS.dateRange.test(line) && !parseRoleCompanyLine(line)) {
-        bullets.push(line);
+      
+      // Stop at section boundaries
+      if (sectionBoundaryPattern.test(nextLine)) {
+        processedLines.add(j);
+        break;
       }
+      
+      // Stop at next date anchor (new entry)
+      const nextDate = extractDate(nextLine);
+      if (nextDate && !isBullet(nextLine)) {
+        // Check if this date has role/company on previous line (new entry)
+        if (j > 0) {
+          const beforeNextDate = lines[j - 1]?.trim() || '';
+          if (parseRoleCompany(beforeNextDate)) {
+            break; // New entry starts here
+          }
+        }
+        // If we have complete entry (role + company), next date is new entry
+        if (role && company) {
+          break;
+        }
+      }
+      
+      // RULE 5: Preserve ALL bullets exactly as they appear
+      if (isBullet(nextLine)) {
+        const bulletText = extractBulletText(nextLine);
+        if (bulletText.length > 0) {
+          bullets.push(bulletText);
+        }
+      } else if (nextLine.length > 5 && !parseRoleCompany(nextLine) && !extractDate(nextLine) && !sectionBoundaryPattern.test(nextLine)) {
+        // Non-bullet text that's not a header/date/section - preserve as bullet
+        bullets.push(nextLine);
+      }
+      
+      processedLines.add(j);
+      j++;
+    }
+    
+    // RULE 6: Create the experience entry (atomic block: company + title + date + bullets)
+    if (role || company) {
+      experiences.push({
+        id: `exp-${experiences.length + 1}`,
+        role: role || 'Unknown Role',
+        company: company || 'Unknown Company',
+        period: dateRange,
+        description: '',
+        bullets: bullets, // ALL bullets preserved exactly
+      });
     }
   }
   
-  flushCurrent();
   return experiences;
 }
 
