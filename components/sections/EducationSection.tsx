@@ -6,7 +6,6 @@ import { useResume } from '@/context/ResumeContext';
 import ResumeSection from '@/components/ResumeSection';
 import { InputField } from '@/components/EditSection';
 import { EducationItem } from '@/types/resume';
-import { usePageBreakPrevention } from '@/hooks/usePageBreakPrevention';
 
 /**
  * Education section component
@@ -216,15 +215,13 @@ function EducationEntry({
   index: number; 
   isLast: boolean;
 }) {
-  const { ref, style: breakStyle } = usePageBreakPrevention<HTMLDivElement>(true);
   const baseStyle = { marginBottom: !isLast ? 'var(--resume-paragraph-gap)' : 0 };
   const parts = [edu.degree, edu.institution, edu.location].filter(Boolean).join(' | ');
 
   return (
     <div 
-      ref={ref}
       className="education-entry"
-      style={{ ...baseStyle, ...breakStyle, fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)' }}
+      style={{ ...baseStyle, fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)' }}
     >
       <p className="text-gray-800" style={{ margin: 0, fontWeight: 400 }}>
         {parts}

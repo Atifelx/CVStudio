@@ -6,7 +6,6 @@ import { useResume } from '@/context/ResumeContext';
 import ResumeSection from '@/components/ResumeSection';
 import EditSection, { InputField, TextAreaField } from '@/components/EditSection';
 import { SkillCategory } from '@/types/resume';
-import { usePageBreakPrevention } from '@/hooks/usePageBreakPrevention';
 
 /**
  * Technical Skills section component
@@ -235,7 +234,6 @@ function SkillCategoryEntry({
   index: number; 
   isLast: boolean;
 }) {
-  const { ref, style: breakStyle } = usePageBreakPrevention<HTMLDivElement>(true);
   const baseStyle = { 
     marginBottom: !isLast ? 'var(--resume-bullet-gap)' : 0,
     fontSize: 'var(--resume-font-size)',
@@ -244,9 +242,8 @@ function SkillCategoryEntry({
   
   return (
     <div 
-      ref={ref}
       className="skill-category"
-      style={{ ...baseStyle, ...breakStyle }}
+      style={baseStyle}
     >
       <strong className="text-gray-800">{skill.category}:</strong>
       <span className="text-gray-700"> {skill.skills}</span>

@@ -66,18 +66,6 @@ export default function Toolbar() {
 
   const baseName = resumeData.header.name.replace(/\s+/g, '_') || 'Resume';
 
-  const handleExportDocx = async () => {
-    setIsExportingDocx(true);
-    try {
-      await exportToDocx(resumeData, settings);
-    } catch (error) {
-      console.error('DOCX export error:', error);
-      alert('Failed to export DOCX.');
-    } finally {
-      setIsExportingDocx(false);
-    }
-  };
-
   const handleExportPdf = async () => {
     setIsExportingPdf(true);
     try {
@@ -87,6 +75,18 @@ export default function Toolbar() {
       alert('Failed to export PDF.');
     } finally {
       setIsExportingPdf(false);
+    }
+  };
+
+  const handleExportDocx = async () => {
+    setIsExportingDocx(true);
+    try {
+      await exportToDocx(resumeData, settings);
+    } catch (error) {
+      console.error('DOCX export error:', error);
+      alert('Failed to export DOCX.');
+    } finally {
+      setIsExportingDocx(false);
     }
   };
 
@@ -178,10 +178,19 @@ export default function Toolbar() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={printToPdf}
-              title="Best quality + ATS · Browser print, then Save as PDF · Sharp vector text"
+              title="Best quality · Browser print, then Save as PDF · Sharp vector text"
               className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-medium border border-indigo-700"
             >
               Print → PDF <span className="opacity-90 text-[10px]">recommended</span>
+            </button>
+            <button
+              onClick={handleExportPdf}
+              disabled={isExportingPdf}
+              title="High-quality PDF (no dialog) · Sharp, print-ready · Same quality as Print → PDF"
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 text-xs font-medium"
+            >
+              {isExportingPdf ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+              PDF
             </button>
             <button
               onClick={handleExportDocx}
@@ -200,15 +209,6 @@ export default function Toolbar() {
             >
               {isExportingPdfAts ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
               PDF <span className="opacity-80 text-[10px]">ATS</span>
-            </button>
-            <button
-              onClick={handleExportPdf}
-              disabled={isExportingPdf}
-              title="Image PDF · High-res for viewing/print · Not ideal for ATS"
-              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 text-xs font-medium"
-            >
-              {isExportingPdf ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
-              PDF
             </button>
             <button
               onClick={() => window.confirm('Clear all resume data? This cannot be undone.') && resetResume()}

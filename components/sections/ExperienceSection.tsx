@@ -6,7 +6,6 @@ import { useResume } from '@/context/ResumeContext';
 import ResumeSection from '@/components/ResumeSection';
 import EditSection, { InputField, TextAreaField } from '@/components/EditSection';
 import { ExperienceItem } from '@/types/resume';
-import { usePageBreakPrevention } from '@/hooks/usePageBreakPrevention';
 
 /**
  * Professional Experience section component
@@ -300,14 +299,12 @@ function ExperienceEntry({
   index: number; 
   isLast: boolean;
 }) {
-  const { ref, style: breakStyle } = usePageBreakPrevention<HTMLDivElement>(true);
   const baseStyle = { marginBottom: !isLast ? 'var(--resume-experience-gap)' : 0 };
   
   return (
     <div
-      ref={ref}
       className="experience-entry"
-      style={{ ...baseStyle, ...breakStyle }}
+      style={baseStyle}
     >
       <div className="flex justify-between items-start" style={{ marginBottom: 'var(--resume-bullet-gap)' }}>
         <div>

@@ -3,12 +3,12 @@ import jsPDF from 'jspdf';
 import { LayoutSettings, PAGE_DIMENSIONS } from '@/types/layout';
 
 /**
- * High-quality PDF Export
- * 
- * Targets ~300 DPI (print standard, MS Word–like sharpness):
- * - scale 4 × 96 DPI base ≈ 384 DPI equivalent
- * - PNG (lossless), no downstream compression
- * - Fonts loaded, letterRendering, antialiasing
+ * High-quality PDF Export (no print dialog)
+ *
+ * Maximizes sharpness to approach Print → PDF quality:
+ * - scale 8–10 × for ~768–960 DPI equivalent (then scaled down into PDF)
+ * - PNG lossless, no compression in jsPDF
+ * - Fonts loaded, export-friendly CSS, high imageSmoothingQuality
  */
 export async function exportToPdf(
   elementId: string,
@@ -67,7 +67,7 @@ export async function exportToPdf(
     await new Promise(resolve => setTimeout(resolve, 150));
 
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const scale = Math.min(6, Math.max(5, Math.round(dpr * 2.5)));
+    const scale = Math.min(10, Math.max(8, Math.round(dpr * 3)));
 
     element.classList.add('pdf-export-active');
     const container = element.closest('.resume-container') || element;
