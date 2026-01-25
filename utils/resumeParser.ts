@@ -609,27 +609,36 @@ function parseExperience(text: string): ExperienceItem[] {
    * Extract date range from a line - improved to handle all formats including spacing variations
    */
   const extractDate = (line: string): string | null => {
+    if (!line) return null;
+    
     // Try the main pattern first
     let match = line.match(PATTERNS.dateRange);
     if (match) {
       let dateStr = match[0].trim();
       // Normalize spacing: "Jan 2020– Sep 2021" -> "Jan 2020 – Sep 2021"
-      // Handle cases where dash has no space after it
-      dateStr = dateStr.replace(/(\d{4}|[a-z]+\s+\d{4})\s*([–—\-])\s*([a-z]+|\d{4})/gi, (m, start, dash, end) => {
+      dateStr = dateStr.replace(/(\d{4}|[a-z]+\s+\d{4})\s*([–—\-])\s*([a-z]+\s+\d{4}|present|current|now|ongoing|\d{4})/gi, (m, start, dash, end) => {
         return `${start.trim()} – ${end.trim()}`;
       });
       return dateStr;
     }
     
     // Fallback: try to match dates with no space after dash (e.g., "Jan 2020– Sep 2021")
-    const noSpaceMatch = line.match(/(\d{4}|[a-z]+\s+\d{4})\s*([–—\-])\s*([a-z]+\s+\d{4}|present|current|now|ongoing|\d{4})/gi);
+    // Pattern: start date (year or month year) + dash (with optional space) + end date
+    const noSpacePattern = /(\d{4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4})\s*([–—\-])\s*((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4}|present|current|now|ongoing|\d{4})/gi;
+    const noSpaceMatch = line.match(noSpacePattern);
     if (noSpaceMatch) {
       let dateStr = noSpaceMatch[0].trim();
       // Normalize spacing
-      dateStr = dateStr.replace(/(\d{4}|[a-z]+\s+\d{4})\s*([–—\-])\s*([a-z]+\s+\d{4}|present|current|now|ongoing|\d{4})/gi, (m, start, dash, end) => {
+      dateStr = dateStr.replace(/(\d{4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4})\s*([–—\-])\s*((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{4}|present|current|now|ongoing|\d{4})/gi, (m, start, dash, end) => {
         return `${start.trim()} – ${end.trim()}`;
       });
       return dateStr;
+    }
+    
+    // Additional fallback: year-to-year format "2013 – 2019"
+    const yearYearMatch = line.match(/(\d{4})\s*[-–—]+\s*(\d{4})/);
+    if (yearYearMatch) {
+      return `${yearYearMatch[1]} – ${yearYearMatch[2]}`;
     }
     
     return null;
@@ -676,16 +685,11 @@ function parseExperience(text: string): ExperienceItem[] {
     const line = lines[i].trim();
     if (!line) continue;
     
-    // Stop at section boundaries
-    if (sectionBoundaryPattern.test(line)) {
-      break;
-    }
-    
     // Look for date ranges - these are our PRIMARY ANCHORS
     const dateRange = extractDate(line);
     if (!dateRange) {
-      // No date on this line - check if it's a potential header we should track
-      // But don't process it yet - wait for its date anchor
+      // No date on this line - skip (we'll process it when we find its date anchor)
+      // Note: section boundaries should already be filtered out by extractSectionContent
       continue;
     }
     
@@ -694,9 +698,10 @@ function parseExperience(text: string): ExperienceItem[] {
     let company = '';
     const bullets: string[] = [];
     
-    // RULE 1: Look ABOVE the date line (previous 1-3 lines) for role/company
-    // Check up to 3 lines back to catch headers that might be separated
-    for (let lookback = 1; lookback <= 3 && i - lookback >= 0; lookback++) {
+    // RULE 1: Look ABOVE the date line (previous 1-5 lines) for role/company
+    // Check up to 5 lines back to catch headers that might be separated by description text
+    let foundHeader = false;
+    for (let lookback = 1; lookback <= 5 && i - lookback >= 0; lookback++) {
       const prevIdx = i - lookback;
       if (processedLines.has(prevIdx)) break;
       
@@ -706,26 +711,23 @@ function parseExperience(text: string): ExperienceItem[] {
       // Stop if we hit another date (this date belongs to that entry)
       if (extractDate(prevLine)) break;
       
-      // Stop if we hit a section boundary
-      if (sectionBoundaryPattern.test(prevLine)) break;
-      
       // If this looks like a header, try to parse it
-      if (isLikelyHeader(prevLine) || parseRoleCompany(prevLine)) {
-        const parsed = parseRoleCompany(prevLine);
-        if (parsed) {
-          role = parsed.role;
-          company = parsed.company;
-          // Mark all lines between header and date as processed
-          for (let k = prevIdx; k < i; k++) {
-            processedLines.add(k);
-          }
-          break;
-        } else if (prevLine.length > 5 && prevLine.length < 100 && !isBullet(prevLine)) {
-          // Fallback: use the line as role if it looks reasonable
-          role = prevLine;
-          processedLines.add(prevIdx);
-          break;
+      const parsed = parseRoleCompany(prevLine);
+      if (parsed) {
+        role = parsed.role;
+        company = parsed.company;
+        // Mark all lines between header and date as processed
+        for (let k = prevIdx; k < i; k++) {
+          processedLines.add(k);
         }
+        foundHeader = true;
+        break;
+      } else if (isLikelyHeader(prevLine) && prevLine.length > 5 && prevLine.length < 100 && !isBullet(prevLine)) {
+        // Fallback: use the line as role if it looks reasonable
+        role = prevLine;
+        processedLines.add(prevIdx);
+        foundHeader = true;
+        break;
       }
     }
     
@@ -756,12 +758,6 @@ function parseExperience(text: string): ExperienceItem[] {
           if (!nextLine) {
             j++;
             continue;
-          }
-          
-          // Stop at section boundaries
-          if (sectionBoundaryPattern.test(nextLine)) {
-            processedLines.add(j);
-            break;
           }
           
           // Stop at next date anchor (new entry)
@@ -808,12 +804,6 @@ function parseExperience(text: string): ExperienceItem[] {
       if (!nextLine) {
         j++;
         continue;
-      }
-      
-      // Stop at section boundaries
-      if (sectionBoundaryPattern.test(nextLine)) {
-        processedLines.add(j);
-        break;
       }
       
       // Stop at next date anchor (new entry)
