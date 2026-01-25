@@ -51,35 +51,72 @@ export async function exportToPdfAts(
     }
   }
 
+  /**
+   * Manually wrap text to avoid jsPDF corruption issues
+   */
+  function wrapText(text: string, maxWidthMm: number, fontSizePt: number): string[] {
+    const lines: string[] = [];
+    const words = text.split(' ');
+    let currentLine = '';
+    
+    // Approximate: 1 character ≈ fontSizePt * 0.5 / 2.83465 mm
+    const charWidthMm = (fontSizePt * 0.5) / 2.83465;
+    const maxChars = Math.floor(maxWidthMm / charWidthMm);
+    
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      
+      if (testLine.length <= maxChars) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) {
+          lines.push(currentLine);
+        }
+        // If single word is too long, force it on new line
+        currentLine = word;
+      }
+    }
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    return lines.length > 0 ? lines : [''];
+  }
+
   function addText(
     text: string,
     opts: { size?: number; bold?: boolean; align?: 'left' | 'center' } = {}
   ): void {
-    // Clean text to prevent breaking issues with special characters
-    // Replace problematic characters that might cause text breaking
+    if (!text || !text.trim()) return;
+    
+    // Normalize text but preserve important characters
     const cleanText = text
-      .replace(/[''""]/g, '"') // Normalize quotes
-      .replace(/['']/g, "'") // Normalize apostrophes
-      .replace(/[–—]/g, '-') // Normalize dashes
-      .replace(/[!]/g, '!') // Ensure exclamation marks are standard
-      .replace(/\s+/g, ' ') // Normalize whitespace
+      .replace(/\r\n/g, ' ')
+      .replace(/\n/g, ' ')
+      .replace(/\s+/g, ' ')
       .trim();
     
     const size = opts.size ?? fontSize;
     pdf.setFont(FONT, opts.bold ? 'bold' : 'normal');
     pdf.setFontSize(size);
     
-    // Use splitTextToSize - this handles text wrapping
-    const lines = pdf.splitTextToSize(cleanText, contentW);
+    // Manual text wrapping to avoid jsPDF corruption
+    const wrappedLines = wrapText(cleanText, contentW, size);
+    const lineHeight = lineHeightMm * (size / fontSize);
+    const totalHeight = wrappedLines.length * lineHeight;
     
-    const h = lines.length * lineHeightMm * (size / fontSize);
-    checkNewPage(h);
+    checkNewPage(totalHeight);
+    
     const x = opts.align === 'center' ? centerX : contentLeft;
     
-    // Add all lines at once (jsPDF handles multi-line text)
-    pdf.text(lines, x, y, { align: opts.align || 'left' });
+    // Add each line individually to avoid corruption
+    wrappedLines.forEach((line, idx) => {
+      const yPos = y + (idx * lineHeight);
+      pdf.text(line, x, yPos, { align: opts.align || 'left' });
+    });
     
-    y += h;
+    y += totalHeight;
   }
 
   function addSpace(mm: number): void {

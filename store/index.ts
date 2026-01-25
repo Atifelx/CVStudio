@@ -56,8 +56,9 @@ const persistStorage = typeof window !== 'undefined'
 const persistConfig: PersistConfig<ResumeState> = {
   key: 'cv-studio-resume',
   storage: persistStorage,
-  whitelist: ['resumeData'],
+  whitelist: ['resumeData', 'editingSection', 'editingItemId'], // Persist all resume state
   version: 1,
+  debug: typeof window !== 'undefined' && process.env.NODE_ENV === 'development',
 };
 
 const persistedReducer = persistReducer(persistConfig, resumeReducer);
@@ -77,17 +78,40 @@ export const store = configureStore({
     }),
 });
 
-export const persistor = persistStore(store);
+export const persistor = persistStore(store, null, () => {
+  // Callback when rehydration completes
+  if (typeof window !== 'undefined') {
+    const state = store.getState();
+    console.log('✅ Redux Persist - Rehydration complete:', {
+      hasResumeData: !!state.resume?.resumeData,
+      hasName: !!state.resume?.resumeData?.header?.name,
+      experienceCount: state.resume?.resumeData?.experience?.length || 0,
+      skillsCount: state.resume?.resumeData?.skills?.length || 0,
+    });
+  }
+});
 
 // Debug: Log when persistence happens
 if (typeof window !== 'undefined') {
   persistor.subscribe(() => {
     const state = store.getState();
-    console.log('Redux Persist - State updated:', {
+    console.log('💾 Redux Persist - State saved:', {
       hasResumeData: !!state.resume?.resumeData,
-      resumeDataKeys: state.resume?.resumeData ? Object.keys(state.resume.resumeData) : [],
+      hasName: !!state.resume?.resumeData?.header?.name,
+      timestamp: new Date().toISOString(),
     });
   });
+  
+  // Log initial localStorage state
+  try {
+    const persistedState = localStorage.getItem('persist:cv-studio-resume');
+    console.log('📦 Initial localStorage check:', {
+      hasData: !!persistedState,
+      size: persistedState ? persistedState.length : 0,
+    });
+  } catch (e) {
+    console.error('❌ localStorage access error:', e);
+  }
 }
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
