@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { useResume } from '@/context/ResumeContext';
 import ResumeSection from '@/components/ResumeSection';
 import EditSection, { InputField, TextAreaField } from '@/components/EditSection';
@@ -76,8 +76,24 @@ export default function ExperienceSection() {
       description: '',
       bullets: [''],
     };
-    setEditData((prev) => [newExp, ...prev]);
+    // Add to bottom (end of array) instead of top
+    setEditData((prev) => [...prev, newExp]);
     setEditingItemId(newExp.id);
+  };
+
+  const moveExperience = (id: string, direction: 'up' | 'down') => {
+    setEditData((prev) => {
+      const index = prev.findIndex((exp) => exp.id === id);
+      if (index === -1) return prev;
+      
+      if (direction === 'up' && index === 0) return prev; // Already at top
+      if (direction === 'down' && index === prev.length - 1) return prev; // Already at bottom
+      
+      const newIndex = direction === 'up' ? index - 1 : index + 1;
+      const newData = [...prev];
+      [newData[index], newData[newIndex]] = [newData[newIndex], newData[index]];
+      return newData;
+    });
   };
 
   const removeExperience = (id: string) => {
@@ -157,12 +173,31 @@ export default function ExperienceSection() {
                     <GripVertical size={16} className="text-gray-400" />
                     <span className="text-sm font-medium text-gray-500">Position {expIndex + 1}</span>
                   </div>
-                  <button
-                    onClick={() => removeExperience(exp.id)}
-                    className="p-1 text-red-500 hover:bg-red-50 rounded"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => moveExperience(exp.id, 'up')}
+                      disabled={expIndex === 0}
+                      className="p-1 text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="Move up"
+                    >
+                      <ChevronUp size={16} />
+                    </button>
+                    <button
+                      onClick={() => moveExperience(exp.id, 'down')}
+                      disabled={expIndex === editData.length - 1}
+                      className="p-1 text-gray-500 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                      title="Move down"
+                    >
+                      <ChevronDown size={16} />
+                    </button>
+                    <button
+                      onClick={() => removeExperience(exp.id)}
+                      className="p-1 text-red-500 hover:bg-red-50 rounded"
+                      title="Remove"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

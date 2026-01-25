@@ -2,16 +2,23 @@
 
 import React from 'react';
 import { Provider } from 'react-redux';
-import { store } from '@/store';
+import { PersistGate } from 'redux-persist/integration/react';
+import { store, persistor } from '@/store';
 
 interface StoreProviderProps {
   children: React.ReactNode;
 }
 
 /**
- * Redux Provider. Persist runs in background; children render immediately
- * so the app stays responsive. Rehydration updates state when ready.
+ * Redux Provider with PersistGate to ensure rehydration completes
+ * before rendering children. This ensures persisted data is loaded.
  */
 export default function StoreProvider({ children }: StoreProviderProps) {
-  return <Provider store={store}>{children}</Provider>;
+  return (
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        {children}
+      </PersistGate>
+    </Provider>
+  );
 }
