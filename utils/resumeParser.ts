@@ -542,117 +542,22 @@ function parseExperience(text: string): ExperienceItem[] {
   
   let currentExp: Partial<ExperienceItem> | null = null;
   let bullets: string[] = [];
-  let achievements: string[] = [];
-  let inAchievementsSection = false;
-  
-  /**
-   * Check if line looks like a job title (not a bullet, reasonable length, no date)
-   */
-  const isJobTitle = (line: string): boolean => {
-    if (!line || line.length < 5 || line.length > 150) return false;
-    if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || line.startsWith('●')) return false;
-    if (PATTERNS.dateRange.test(line)) return false;
-    if (/^(tech|key achievements?):/i.test(line)) return false;
-    // Job titles often contain: Engineer, Developer, Manager, etc. or have separators like - or |
-    if (/\b(engineer|developer|manager|director|lead|senior|junior|architect|specialist|analyst|coordinator|executive|officer|product|engineer)\b/i.test(line)) return true;
-    if (line.includes(' - ') || line.includes('–') || line.includes(' | ')) return true;
-    // If it's a short line without sentence-ending punctuation, might be a title
-    if (line.length < 100 && !/[.!?]$/.test(line) && !line.toLowerCase().startsWith('built') && !line.toLowerCase().startsWith('designed')) return true;
-    return false;
-  };
-  
-  /**
-   * Parse company and date from line like "Company | Date" or "Company - Website | Date"
-   */
-  const parseCompanyDate = (line: string): { company: string; date: string } | null => {
-    const dateMatch = line.match(PATTERNS.dateRange);
-    if (!dateMatch) return null;
-    
-    const date = dateMatch[0];
-    const beforeDate = line.substring(0, line.indexOf(date)).trim();
-    
-    // Format: "Company | Date" or "Company - Website | Date"
-    if (beforeDate.includes('|')) {
-      const parts = beforeDate.split('|').map(p => p.trim()).filter(Boolean);
-      // Take the first part as company (might be "Company - Website" or "Company (Description) - Website")
-      let company = parts[0] || '';
-      
-      // Clean up company name:
-      // Remove parenthetical descriptions: "WriteBookAI (AI SaaS for Authors)" -> "WriteBookAI"
-      company = company.replace(/\s*\([^)]*\)\s*/g, '').trim();
-      
-      // If company contains " - ", take the part before the dash (the actual company name)
-      if (company.includes(' - ')) {
-        company = company.split(' - ')[0].trim();
-      } else if (company.includes('–')) {
-        company = company.split('–')[0].trim();
-      }
-      
-      return { company, date };
-    }
-    
-    // Format: "Company - Date" or "Company - Website - Date"
-    if (beforeDate) {
-      // If it has multiple dashes, the company is before the first dash
-      let company = beforeDate;
-      if (beforeDate.includes(' - ')) {
-        company = beforeDate.split(' - ')[0].trim();
-      } else if (beforeDate.includes('–')) {
-        company = beforeDate.split('–')[0].trim();
-      }
-      // Remove parenthetical descriptions
-      company = company.replace(/\s*\([^)]*\)\s*/g, '').trim();
-      return { company, date };
-    }
-    
-    // Date only, company might be on previous line
-    return { company: '', date };
-  };
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
     
-    const isBullet = line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || line.startsWith('●');
+    // Check if this line contains a date range
     const dateMatch = line.match(PATTERNS.dateRange);
     
-    // Check for "Key Achievements:" section
-    if (/^key\s+achievements?:/i.test(line)) {
-      inAchievementsSection = true;
-      achievements = [];
-      continue;
-    }
+    // Detect new experience entry
+    const isBullet = line.startsWith('•') || line.startsWith('-') || line.startsWith('*') || line.startsWith('●');
+    const isNewEntry = dateMatch && !isBullet;
     
-    // Check for "Tech:" line - skip it
-    if (/^tech:/i.test(line)) {
-      continue;
-    }
-    
-    // If we're in achievements section, collect achievements
-    if (inAchievementsSection && currentExp) {
-      if (isBullet || line.length > 20) {
-        const achievementText = isBullet ? line.replace(/^[•\-*●]\s*/, '').trim() : line;
-        if (achievementText.length > 5) {
-          achievements.push(achievementText);
-        }
-      } else {
-        // End of achievements section (hit a new entry or section)
-        inAchievementsSection = false;
-        if (achievements.length > 0) {
-          currentExp.achievements = [...achievements];
-          achievements = [];
-        }
-      }
-    }
-    
-    // Detect new experience entry: line with date (and possibly company)
-    if (dateMatch && !isBullet) {
+    if (isNewEntry) {
       // Save previous entry
       if (currentExp && (currentExp.role || currentExp.company)) {
         currentExp.bullets = bullets.filter(b => b.length > 5);
-        if (achievements.length > 0) {
-          currentExp.achievements = achievements;
-        }
         experiences.push({
           id: `exp-${experiences.length + 1}`,
           role: currentExp.role || '',
@@ -660,96 +565,108 @@ function parseExperience(text: string): ExperienceItem[] {
           period: currentExp.period || '',
           description: '',
           bullets: currentExp.bullets || [],
-          achievements: currentExp.achievements || [],
         });
       }
       
-      // Parse company and date from current line
-      const companyDate = parseCompanyDate(line);
-      const period = companyDate?.date || dateMatch[0];
-      let company = companyDate?.company || '';
-      let role = '';
+      // Parse the new entry
+      const period = dateMatch[0];
+      const beforeDate = line.substring(0, line.indexOf(dateMatch[0])).trim();
       
-      // Look back at previous line(s) for job title - CHECK UP TO 3 LINES
-      if (i > 0) {
-        for (let lookback = 1; lookback <= 3 && i - lookback >= 0; lookback++) {
+      // Try to split role and company from current line
+      let role = '';
+      let company = '';
+      
+      if (beforeDate.includes('|')) {
+        const parts = beforeDate.split('|').map(p => p.trim());
+        role = parts[0] || '';
+        company = parts[1] || '';
+      } else if (beforeDate.includes(' at ')) {
+        const parts = beforeDate.split(' at ').map(p => p.trim());
+        role = parts[0] || '';
+        company = parts[1] || '';
+      } else if (beforeDate.includes(' - ')) {
+        const parts = beforeDate.split(' - ').map(p => p.trim());
+        role = parts[0] || '';
+        company = parts[1] || '';
+      } else if (beforeDate.includes('–')) {
+        const parts = beforeDate.split('–').map(p => p.trim());
+        role = parts[0] || '';
+        company = parts[1] || '';
+      } else {
+        role = beforeDate;
+      }
+      
+      // If we didn't find role/company on the date line, look back at previous line(s)
+      if ((!role || !company) && i > 0) {
+        // Look back up to 2 lines for job title/company
+        for (let lookback = 1; lookback <= 2 && i - lookback >= 0; lookback++) {
           const prevLine = lines[i - lookback]?.trim() || '';
           if (!prevLine) continue;
           
-          // Skip bullets, dates, and section headers
-          const prevIsBullet = prevLine.startsWith('•') || prevLine.startsWith('-') || prevLine.startsWith('*') || prevLine.startsWith('●');
-          if (prevIsBullet || prevLine.match(PATTERNS.dateRange)) continue;
-          if (/^(tech|key achievements?):/i.test(prevLine)) continue;
+          // Skip if previous line is a bullet or date
+          if (prevLine.startsWith('•') || prevLine.startsWith('-') || prevLine.startsWith('*') || prevLine.startsWith('●')) continue;
+          if (prevLine.match(PATTERNS.dateRange)) continue;
           
-          // Check if previous line is a job title
-          if (isJobTitle(prevLine)) {
-            role = prevLine;
-            break;
-          }
-          
-          // Also check if it has role/company separators
+          // Try to parse role and company from previous line
           if (prevLine.includes('|')) {
             const parts = prevLine.split('|').map(p => p.trim()).filter(Boolean);
             if (parts.length >= 2) {
-              role = parts[0];
-              if (!company) company = parts[1];
+              role = parts[0] || role;
+              company = parts[1] || company;
               break;
             }
-          } else if (prevLine.includes(' - ') || prevLine.includes('–')) {
-            const parts = prevLine.split(/[-–]/).map(p => p.trim());
+          } else if (prevLine.includes(' at ')) {
+            const parts = prevLine.split(/\s+at\s+/i).map(p => p.trim());
             if (parts.length >= 2) {
-              role = parts[0];
-              if (!company) company = parts[1];
+              role = parts[0] || role;
+              company = parts.slice(1).join(' at ').trim() || company;
               break;
             }
+          } else if (prevLine.includes(' - ')) {
+            const parts = prevLine.split(' - ').map(p => p.trim());
+            if (parts.length >= 2) {
+              role = parts[0] || role;
+              company = parts[1] || company;
+              break;
+            }
+          } else if (prevLine.includes('–')) {
+            const parts = prevLine.split('–').map(p => p.trim());
+            if (parts.length >= 2) {
+              role = parts[0] || role;
+              company = parts[1] || company;
+              break;
+            }
+          } else if (prevLine.length > 5 && prevLine.length < 150 && !role) {
+            // If no separator found and line looks reasonable, use as role
+            role = prevLine;
+            break;
           }
-        }
-      }
-      
-      // If still no role, try to extract from date line itself
-      if (!role && companyDate) {
-        const beforeDate = line.substring(0, line.indexOf(companyDate.date)).trim();
-        if (beforeDate && beforeDate.includes('|')) {
-          const parts = beforeDate.split('|').map(p => p.trim());
-          company = parts[0] || company;
         }
       }
       
       currentExp = { role, company, period };
       bullets = [];
-      achievements = [];
-      inAchievementsSection = false;
       
-    } else if (isBullet && currentExp) {
+    } else if (isBullet) {
       // It's a bullet point
       const bulletText = line.replace(/^[•\-*●]\s*/, '').trim();
       if (bulletText.length > 5) {
-        if (inAchievementsSection) {
-          achievements.push(bulletText);
-        } else {
-          bullets.push(bulletText);
-        }
+        bullets.push(bulletText);
       }
       
-    } else if (currentExp && line.length > 20 && !line.match(PATTERNS.dateRange) && !isJobTitle(line)) {
-      // Long line without date - treat as bullet or achievement
-      if (inAchievementsSection) {
-        achievements.push(line);
-      } else {
-        bullets.push(line);
-      }
-    } else if (!currentExp && isJobTitle(line)) {
-      // Potential job title without date yet - wait for date line
-      // This handles cases where title comes before company/date
+    } else if (currentExp && !currentExp.company && line.length < 80) {
+      // Might be the company name on a separate line
+      currentExp.company = line;
+      
+    } else if (line.length > 20 && !line.match(PATTERNS.dateRange)) {
+      // Long line without date - treat as bullet
+      bullets.push(line);
     }
   }
   
   // Don't forget the last entry
   if (currentExp && (currentExp.role || currentExp.company)) {
     currentExp.bullets = bullets.filter(b => b.length > 5);
-    if (achievements.length > 0) {
-      currentExp.achievements = achievements;
-    }
     experiences.push({
       id: `exp-${experiences.length + 1}`,
       role: currentExp.role || '',
@@ -757,7 +674,6 @@ function parseExperience(text: string): ExperienceItem[] {
       period: currentExp.period || '',
       description: '',
       bullets: currentExp.bullets || [],
-      achievements: currentExp.achievements || [],
     });
   }
   
