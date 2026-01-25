@@ -84,8 +84,8 @@ function ResumeEditor({ onSwitchToUpload, onStartFromScratch }: { onSwitchToUplo
       <Toolbar />
 
       {/* Resume Content */}
-      <main className="py-6 px-2" role="main">
-        <div className="max-w-5xl mx-auto" style={{ paddingLeft: '50px' }}>
+      <main className="py-6 px-4" role="main">
+        <div className="max-w-5xl mx-auto">
           <article aria-label="Resume preview and editor">
             <ResumeContainer id="resume-content">
               <div style={{ padding: 'var(--resume-page-margin)' }}>
