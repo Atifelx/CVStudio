@@ -1,5 +1,5 @@
 import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { PDFDocument, rgb } from 'pdf-lib';
 import { LayoutSettings, PAGE_DIMENSIONS } from '@/types/layout';
 
 /**
@@ -112,48 +112,45 @@ export async function exportToPdf(
     // Remove export class
     element.classList.remove('pdf-export-active');
 
-    // Create PDF with COMPRESSION enabled
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: settings.pageSize === 'a4' ? 'a4' : 'letter',
-      compress: true,  // Enable PDF compression
-    });
-
-    const pdfWidth = pageDim.width;
-    const pdfHeight = pageDim.height;
-    const imgWidth = pdfWidth - (marginMm * 2);
+    // Create PDF using pdf-lib
+    const pdfDoc = await PDFDocument.create();
+    
+    // Convert mm to points (1 mm = 2.83465 points)
+    const mmToPoints = 2.83465;
+    const pdfWidth = pageDim.width * mmToPoints;
+    const pdfHeight = pageDim.height * mmToPoints;
+    const marginPoints = marginMm * mmToPoints;
+    const imgWidth = pdfWidth - (marginPoints * 2);
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    const pageContentHeight = pdfHeight - (marginMm * 2);
+    const pageContentHeight = pdfHeight - (marginPoints * 2);
 
+    // Convert canvas to PNG image data
     const imgData = canvas.toDataURL('image/png');
+    const imgBytes = await fetch(imgData).then(res => res.arrayBuffer());
+    const pngImage = await pdfDoc.embedPng(imgBytes);
 
     if (imgHeight <= pageContentHeight) {
-      pdf.addImage(
-        imgData,
-        'PNG',
-        marginMm,
-        marginMm,
-        imgWidth,
-        imgHeight,
-        undefined,
-        'NONE'
-      );
+      // Single page
+      const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
+      page.drawImage(pngImage, {
+        x: marginPoints,
+        y: pdfHeight - marginPoints - imgHeight,
+        width: imgWidth,
+        height: imgHeight,
+      });
     } else {
       // Multi-page
       let remainingHeight = imgHeight;
       let sourceY = 0;
       let pageNum = 0;
       
-      const pixelsPerMm = canvas.width / imgWidth;
+      const pixelsPerPoint = canvas.width / imgWidth;
       
       while (remainingHeight > 0) {
-        if (pageNum > 0) {
-          pdf.addPage();
-        }
-
+        const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
+        
         const drawHeight = Math.min(pageContentHeight, remainingHeight);
-        const sourceHeight = drawHeight * pixelsPerMm;
+        const sourceHeight = drawHeight * pixelsPerPoint;
 
         // Create page canvas
         const pageCanvas = document.createElement('canvas');
@@ -163,7 +160,7 @@ export async function exportToPdf(
         const ctx = pageCanvas.getContext('2d', { alpha: false });
         
         if (ctx) {
-          // Fill white background (prevents transparency issues with JPEG)
+          // Fill white background
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
           
@@ -178,17 +175,17 @@ export async function exportToPdf(
           );
         }
 
+        // Embed page image
         const pageImgData = pageCanvas.toDataURL('image/png');
-        pdf.addImage(
-          pageImgData,
-          'PNG',
-          marginMm,
-          marginMm,
-          imgWidth,
-          drawHeight,
-          undefined,
-          'NONE'
-        );
+        const pageImgBytes = await fetch(pageImgData).then(res => res.arrayBuffer());
+        const pagePngImage = await pdfDoc.embedPng(pageImgBytes);
+        
+        page.drawImage(pagePngImage, {
+          x: marginPoints,
+          y: pdfHeight - marginPoints - drawHeight,
+          width: imgWidth,
+          height: drawHeight,
+        });
 
         sourceY += sourceHeight;
         remainingHeight -= drawHeight;
@@ -200,9 +197,18 @@ export async function exportToPdf(
     document.body.removeChild(loadingDiv);
 
     // Save the PDF
-    pdf.save(filename);
+    const pdfBytes = await pdfDoc.save();
+    const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     
-    console.log('PDF exported successfully');
+    console.log('PDF exported successfully with pdf-lib');
     
   } catch (error) {
     console.error('PDF export error:', error);
