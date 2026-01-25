@@ -572,7 +572,7 @@ function parseExperience(text: string): ExperienceItem[] {
       const period = dateMatch[0];
       const beforeDate = line.substring(0, line.indexOf(dateMatch[0])).trim();
       
-      // Try to split role and company
+      // Try to split role and company from current line
       let role = '';
       let company = '';
       
@@ -588,8 +588,60 @@ function parseExperience(text: string): ExperienceItem[] {
         const parts = beforeDate.split(' - ').map(p => p.trim());
         role = parts[0] || '';
         company = parts[1] || '';
+      } else if (beforeDate.includes('–')) {
+        const parts = beforeDate.split('–').map(p => p.trim());
+        role = parts[0] || '';
+        company = parts[1] || '';
       } else {
         role = beforeDate;
+      }
+      
+      // If we didn't find role/company on the date line, look back at previous line(s)
+      if ((!role || !company) && i > 0) {
+        // Look back up to 2 lines for job title/company
+        for (let lookback = 1; lookback <= 2 && i - lookback >= 0; lookback++) {
+          const prevLine = lines[i - lookback]?.trim() || '';
+          if (!prevLine) continue;
+          
+          // Skip if previous line is a bullet or date
+          if (prevLine.startsWith('•') || prevLine.startsWith('-') || prevLine.startsWith('*') || prevLine.startsWith('●')) continue;
+          if (prevLine.match(PATTERNS.dateRange)) continue;
+          
+          // Try to parse role and company from previous line
+          if (prevLine.includes('|')) {
+            const parts = prevLine.split('|').map(p => p.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+              role = parts[0] || role;
+              company = parts[1] || company;
+              break;
+            }
+          } else if (prevLine.includes(' at ')) {
+            const parts = prevLine.split(/\s+at\s+/i).map(p => p.trim());
+            if (parts.length >= 2) {
+              role = parts[0] || role;
+              company = parts.slice(1).join(' at ').trim() || company;
+              break;
+            }
+          } else if (prevLine.includes(' - ')) {
+            const parts = prevLine.split(' - ').map(p => p.trim());
+            if (parts.length >= 2) {
+              role = parts[0] || role;
+              company = parts[1] || company;
+              break;
+            }
+          } else if (prevLine.includes('–')) {
+            const parts = prevLine.split('–').map(p => p.trim());
+            if (parts.length >= 2) {
+              role = parts[0] || role;
+              company = parts[1] || company;
+              break;
+            }
+          } else if (prevLine.length > 5 && prevLine.length < 150 && !role) {
+            // If no separator found and line looks reasonable, use as role
+            role = prevLine;
+            break;
+          }
+        }
       }
       
       currentExp = { role, company, period };
