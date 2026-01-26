@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Upload, Edit3, Plus, RefreshCw, Star, Zap, Shield, FileDown } from 'lucide-react';
 import { ResumeProvider, useResume } from '@/context/ResumeContext';
 import StoreProvider from '@/components/StoreProvider';
@@ -227,6 +227,13 @@ function UploadTab({ onParsed }: { onParsed: (data: Partial<ResumeData>) => void
 function MainContent() {
   const [activeTab, setActiveTab] = useState<TabType>('upload');
   const { setResumeData, hasData, resetResume } = useResume();
+
+  // Auto-switch to editor if resume data exists (from Redux persistence)
+  useEffect(() => {
+    if (hasData) {
+      setActiveTab('editor');
+    }
+  }, [hasData]);
 
   const handleParsedResume = (data: Partial<ResumeData>) => {
     setResumeData((prev) => ({
