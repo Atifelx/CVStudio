@@ -83,34 +83,53 @@ function wrapText(
 }
 
 /**
- * Wrap skills text - tries to keep on one line, breaks at | separators if needed
+ * Wrap skills text - tries to keep on one line, reduces font size if needed
+ * Returns: { lines: string[], fontSize: number } - adjusted font size if needed
  */
 function wrapSkillsText(
   text: string,
   font: PDFFont,
   fontSize: number,
   contentWidth: number
-): string[] {
+): { lines: string[]; fontSize: number } {
   const sanitized = sanitizeText(text);
-  if (!sanitized) return [];
+  if (!sanitized) return { lines: [], fontSize };
   
-  // First, check if entire text fits on one line
-  const fullWidth = font.widthOfTextAtSize(sanitized, fontSize);
+  // First, check if entire text fits on one line at current size
+  let currentFontSize = fontSize;
+  let fullWidth = font.widthOfTextAtSize(sanitized, currentFontSize);
+  
+  // If it fits, return as single line
   if (fullWidth <= contentWidth) {
-    return [sanitized];
+    return { lines: [sanitized], fontSize: currentFontSize };
   }
   
-  // If it doesn't fit, try breaking at | separators (skill separators)
+  // Try reducing font size to fit on one line (minimum 8pt)
+  const minFontSize = 8;
+  let adjustedFontSize = currentFontSize;
+  
+  while (adjustedFontSize > minFontSize && fullWidth > contentWidth) {
+    adjustedFontSize -= 0.5; // Reduce by 0.5pt each iteration
+    fullWidth = font.widthOfTextAtSize(sanitized, adjustedFontSize);
+    
+    // If it now fits, use this smaller size
+    if (fullWidth <= contentWidth) {
+      return { lines: [sanitized], fontSize: adjustedFontSize };
+    }
+  }
+  
+  // If still doesn't fit even at minimum size, try breaking at | separators
   if (sanitized.includes('|')) {
     const skills = sanitized.split('|').map(s => s.trim());
     const lines: string[] = [];
     let currentLine = '';
     
+    // Use the adjusted (smaller) font size for wrapping calculation
     for (let i = 0; i < skills.length; i++) {
       const skill = skills[i];
       const separator = i > 0 ? ' | ' : '';
       const testLine = currentLine ? `${currentLine}${separator}${skill}` : skill;
-      const width = font.widthOfTextAtSize(testLine, fontSize);
+      const width = font.widthOfTextAtSize(testLine, adjustedFontSize);
       
       if (width <= contentWidth) {
         currentLine = testLine;
@@ -126,11 +145,15 @@ function wrapSkillsText(
       lines.push(currentLine);
     }
     
-    return lines.length > 0 ? lines : [sanitized];
+    return { 
+      lines: lines.length > 0 ? lines : [sanitized], 
+      fontSize: adjustedFontSize 
+    };
   }
   
-  // Fallback to regular word wrapping
-  return wrapText(sanitized, font, fontSize, contentWidth);
+  // Fallback to regular word wrapping with adjusted font size
+  const wrappedLines = wrapText(sanitized, font, adjustedFontSize, contentWidth);
+  return { lines: wrappedLines, fontSize: adjustedFontSize };
 }
 
 export async function exportToPdfAts(
@@ -191,15 +214,21 @@ export async function exportToPdfAts(
         isSkills?: boolean; // Special handling for skills
       } = {}
     ): void => {
-      const fontSize = options.fontSize || baseFontSize;
+      let fontSize = options.fontSize || baseFontSize;
       const font = options.bold ? fontBold : fontRegular;
       const color = options.color || blackColor;
       const align = options.align || 'left';
       
-      // Use special wrapping for skills to keep them on one line when possible
-      const lines = options.isSkills 
-        ? wrapSkillsText(text, font, fontSize, contentWidth)
-        : wrapText(text, font, fontSize, contentWidth);
+      // Use special wrapping for skills - may adjust font size to fit on one line
+      let lines: string[];
+      if (options.isSkills) {
+        const result = wrapSkillsText(text, font, fontSize, contentWidth);
+        lines = result.lines;
+        fontSize = result.fontSize; // Use adjusted font size if it was reduced
+      } else {
+        lines = wrapText(text, font, fontSize, contentWidth);
+      }
+      
       if (lines.length === 0) return;
       
       const totalHeight = lines.length * lineHeight;
