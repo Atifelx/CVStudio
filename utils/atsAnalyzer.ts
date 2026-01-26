@@ -286,12 +286,16 @@ function analyzeSummary(data: ResumeData, suggestions: string[], strengths: stri
   } else if (wordCount >= 30 && wordCount <= 200) {
     score += 4;
     feedback.push(`⚠ Acceptable length (${wordCount} words), ideal is 50-150`);
+    if (wordCount < 50) {
+      suggestions.push(`Expand summary by ${50 - wordCount} words. Add: years of experience, key skills, and main achievements`);
+    }
   } else if (wordCount < 30) {
     feedback.push(`✗ Too short (${wordCount} words) - ATS may flag as incomplete`);
-    suggestions.push('Expand your professional summary to 50-150 words for better ATS parsing');
+    suggestions.push(`Expand summary to 50-150 words. Add: ${50 - wordCount} more words about your experience, skills, and achievements`);
   } else {
     score += 2;
     feedback.push(`⚠ Too long (${wordCount} words), consider trimming to 150 words`);
+    suggestions.push(`Trim summary by ${wordCount - 150} words. Keep only most relevant experience and achievements`);
   }
 
   // Check for keywords with frequency (7 points)
@@ -303,9 +307,10 @@ function analyzeSummary(data: ResumeData, suggestions: string[], strengths: stri
   } else if (techKeywordCount >= 5) {
     score += 4;
     feedback.push(`⚠ ${techKeywordCount} technical keywords (aim for 8+ occurrences)`);
+    suggestions.push(`Add ${8 - techKeywordCount} more technical keywords to summary. Include: programming languages, frameworks, tools you use`);
   } else {
     feedback.push(`✗ Low keyword density (${techKeywordCount} keywords)`);
-    suggestions.push('Add more relevant technical keywords to your summary - repeat important terms');
+    suggestions.push(`Add ${8 - techKeywordCount} technical keywords to summary. Examples: Python, React, AWS, Docker, SQL. Repeat important terms 2-3 times`);
   }
 
   // Check for quantifiable achievements (4 points)
@@ -316,7 +321,7 @@ function analyzeSummary(data: ResumeData, suggestions: string[], strengths: stri
     strengths.push('Summary includes measurable results - ATS systems prioritize this');
   } else {
     feedback.push('✗ No quantifiable achievements');
-    suggestions.push('Add numbers/percentages to your summary (e.g., "5+ years", "reduced costs by 30%")');
+    suggestions.push('Add numbers to summary. Examples: "5+ years experience", "reduced costs by 30%", "managed team of 10", "$1M revenue"');
   }
 
   // Check for action verbs (3 points)
@@ -357,14 +362,37 @@ function analyzeExperience(data: ResumeData, suggestions: string[], strengths: s
   } else if (experience.length >= 2) {
     score += 4;
     feedback.push(`⚠ ${experience.length} experiences (aim for 3+ for better ATS ranking)`);
+    suggestions.push(`Add ${3 - experience.length} more work experience${3 - experience.length > 1 ? 's' : ''} to improve ATS score`);
   } else if (experience.length === 1) {
     score += 2;
     feedback.push('⚠ Only 1 experience listed');
-    suggestions.push('Add more relevant work experiences - ATS systems prefer 2-3+ positions');
+    suggestions.push('Add 2 more work experiences - ATS systems prefer 2-3+ positions for better matching');
   } else {
     feedback.push('✗ No work experience listed');
-    suggestions.push('Add your work experience - this is critical for ATS scoring');
+    suggestions.push('Add your work experience - this is critical for ATS scoring. Include at least 2-3 positions with job title, company, and dates');
   }
+
+  // Check for missing details in each experience
+  experience.forEach((exp, idx) => {
+    const issues: string[] = [];
+    if (!exp.role || exp.role.trim().length < 3) {
+      issues.push('job title');
+    }
+    if (!exp.company || exp.company.trim().length < 2) {
+      issues.push('company name');
+    }
+    if (!exp.period || !exp.period.match(/\d{4}/)) {
+      issues.push('date range');
+    }
+    if (exp.bullets.length === 0) {
+      issues.push('bullet points');
+    }
+    
+    if (issues.length > 0) {
+      const expLabel = exp.company || exp.role || `Experience #${idx + 1}`;
+      suggestions.push(`Fix ${expLabel}: Missing ${issues.join(', ')}. Add these details to improve ATS parsing`);
+    }
+  });
 
   // Calculate years of experience (4 points)
   const totalYears = extractYearsOfExperience(data);
@@ -387,15 +415,23 @@ function analyzeExperience(data: ResumeData, suggestions: string[], strengths: s
   let bulletsWithMetrics = 0;
   let bulletsWithActionVerbs = 0;
   let bulletsStartingWithAction = 0;
+  const bulletsNeedingMetrics: string[] = [];
+  const bulletsNeedingActionVerbs: string[] = [];
 
   experience.forEach((exp) => {
-    exp.bullets.forEach((bullet) => {
+    exp.bullets.forEach((bullet, bulletIdx) => {
       totalBullets++;
       const bulletLower = bullet.toLowerCase().trim();
+      const needsMetric = !/\d+%|\d+x|\d+\+|\$\d+|\d+\s*(million|thousand|k|m|users|customers|transactions|hours|days|weeks|months|years)\b/i.test(bullet);
+      const needsActionVerb = !ATS_KEYWORDS.action.some(verb => 
+        bulletLower.startsWith(verb) || bulletLower.startsWith(verb + ' ')
+      );
       
       // Check for metrics (more comprehensive)
-      if (/\d+%|\d+x|\d+\+|\$\d+|\d+\s*(million|thousand|k|m|users|customers|transactions|hours|days|weeks|months|years)\b/i.test(bullet)) {
+      if (!needsMetric) {
         bulletsWithMetrics++;
+      } else if (bulletIdx < 3) { // Only track first 3 bullets per experience
+        bulletsNeedingMetrics.push(`${exp.company || exp.role || 'Experience'}: "${bullet.substring(0, 50)}..."`);
       }
       
       // Check if bullet starts with action verb (most important)
@@ -405,8 +441,13 @@ function analyzeExperience(data: ResumeData, suggestions: string[], strengths: s
       if (startsWithAction) {
         bulletsStartingWithAction++;
         bulletsWithActionVerbs++;
-      } else if (ATS_KEYWORDS.action.some(verb => bulletLower.includes(` ${verb} `) || bulletLower.includes(` ${verb},`))) {
-        bulletsWithActionVerbs++;
+      } else {
+        if (needsActionVerb && bulletIdx < 3) {
+          bulletsNeedingActionVerbs.push(`${exp.company || exp.role || 'Experience'}: "${bullet.substring(0, 50)}..."`);
+        }
+        if (ATS_KEYWORDS.action.some(verb => bulletLower.includes(` ${verb} `) || bulletLower.includes(` ${verb},`))) {
+          bulletsWithActionVerbs++;
+        }
       }
     });
   });
@@ -420,13 +461,16 @@ function analyzeExperience(data: ResumeData, suggestions: string[], strengths: s
   } else if (metricsPercentage >= 30) {
     score += 4;
     feedback.push(`⚠ ${Math.round(metricsPercentage)}% of bullets have metrics (aim for 50%+)`);
+    if (bulletsNeedingMetrics.length > 0) {
+      suggestions.push(`Add numbers/percentages to ${Math.min(3, bulletsNeedingMetrics.length)} bullet point${bulletsNeedingMetrics.length > 1 ? 's' : ''} (e.g., "increased by 30%", "managed team of 5", "saved $50K")`);
+    }
   } else if (metricsPercentage >= 15) {
     score += 2;
     feedback.push(`⚠ Only ${Math.round(metricsPercentage)}% of bullets have metrics`);
-    suggestions.push('Add more numbers and percentages to your bullet points - ATS systems score higher with metrics');
+    suggestions.push(`Add numbers and percentages to ${Math.ceil(totalBullets * 0.5)}+ bullet points - ATS systems score higher with metrics. Example: "increased revenue by 30%" or "managed team of 5"`);
   } else {
     feedback.push(`✗ Only ${Math.round(metricsPercentage)}% of bullets have metrics`);
-    suggestions.push('Add quantifiable results to bullet points (e.g., "increased revenue by 30%", "managed team of 5")');
+    suggestions.push(`Add quantifiable results to ${Math.ceil(totalBullets * 0.5)}+ bullet points. Include numbers like: "30% increase", "team of 5", "$50K saved", "2 years"`);
   }
 
   // Action verbs at start of bullets (4 points) - Critical for ATS
@@ -438,14 +482,19 @@ function analyzeExperience(data: ResumeData, suggestions: string[], strengths: s
   } else if (actionStartPercentage >= 50) {
     score += 3;
     feedback.push(`⚠ ${Math.round(actionStartPercentage)}% start with action verbs (aim for 70%+)`);
+    if (bulletsNeedingActionVerbs.length > 0) {
+      suggestions.push(`Restructure ${Math.min(3, bulletsNeedingActionVerbs.length)} bullet point${bulletsNeedingActionVerbs.length > 1 ? 's' : ''} to start with action verbs like: "Led", "Developed", "Implemented", "Achieved"`);
+    }
   } else if (actionStartPercentage >= 30) {
     score += 2;
     feedback.push(`⚠ ${Math.round(actionStartPercentage)}% start with action verbs`);
-    suggestions.push('Start bullet points with strong action verbs (Led, Developed, Implemented) - ATS systems prefer this format');
+    const needToFix = Math.ceil(totalBullets * 0.4);
+    suggestions.push(`Start ${needToFix}+ bullet points with action verbs (Led, Developed, Implemented, Built, Created) - ATS systems prefer this format`);
   } else {
     score += 1;
     feedback.push(`✗ Only ${Math.round(actionStartPercentage)}% start with action verbs`);
-    suggestions.push('Restructure bullets to start with action verbs for better ATS parsing');
+    const needToFix = Math.ceil(totalBullets * 0.5);
+    suggestions.push(`Restructure ${needToFix}+ bullets to start with action verbs. Example: Change "Was responsible for..." to "Led..." or "Developed..."`);
   }
 
   // General action verb usage (2 points)
@@ -457,7 +506,18 @@ function analyzeExperience(data: ResumeData, suggestions: string[], strengths: s
   }
 
   // Job titles and companies completeness (6 points)
-  const hasCompleteTitles = experience.every(exp => exp.role && exp.company && exp.period);
+  const incompleteExperiences: string[] = [];
+  experience.forEach((exp, idx) => {
+    const missing: string[] = [];
+    if (!exp.role || exp.role.trim().length < 3) missing.push('job title');
+    if (!exp.company || exp.company.trim().length < 2) missing.push('company name');
+    if (!exp.period || !exp.period.match(/\d{4}/)) missing.push('date range');
+    if (missing.length > 0) {
+      incompleteExperiences.push(`${exp.company || exp.role || `Experience #${idx + 1}`}: Missing ${missing.join(', ')}`);
+    }
+  });
+
+  const hasCompleteTitles = experience.length > 0 && experience.every(exp => exp.role && exp.company && exp.period);
   if (hasCompleteTitles && experience.length >= 2) {
     score += 6;
     feedback.push('✓ All positions have complete information');
@@ -468,7 +528,13 @@ function analyzeExperience(data: ResumeData, suggestions: string[], strengths: s
   } else {
     score += 2;
     feedback.push('⚠ Some positions missing title, company, or dates');
-    suggestions.push('Ensure all positions have role, company, and date range');
+    if (incompleteExperiences.length > 0) {
+      incompleteExperiences.slice(0, 2).forEach(issue => {
+        suggestions.push(`Fix: ${issue}. Add missing details to improve ATS score`);
+      });
+    } else {
+      suggestions.push('Ensure all positions have: job title, company name, and date range (e.g., "Jan 2020 - Dec 2022")');
+    }
   }
 
   return {
@@ -498,9 +564,10 @@ function analyzeSkills(data: ResumeData, suggestions: string[], strengths: strin
   } else if (skills.length >= 3) {
     score += 3;
     feedback.push(`⚠ ${skills.length} skill categories (aim for 5+ for better ATS matching)`);
+    suggestions.push(`Add ${5 - skills.length} more skill categories. Suggested: Technical Skills, Tools & Platforms, Soft Skills, Certifications, Languages`);
   } else {
     feedback.push('✗ Limited skill categories');
-    suggestions.push('Organize skills into more categories (Technical, Tools, Soft Skills, Certifications)');
+    suggestions.push(`Add ${5 - skills.length} skill categories. Create sections like: "Programming Languages", "Frameworks", "Tools", "Soft Skills", "Certifications"`);
   }
 
   // Check technical skills with frequency (6 points)
@@ -512,13 +579,14 @@ function analyzeSkills(data: ResumeData, suggestions: string[], strengths: strin
   } else if (techSkillsCount >= 8) {
     score += 4;
     feedback.push(`⚠ ${techSkillsCount} recognized skills (aim for 15+ for better matching)`);
+    suggestions.push(`Add ${15 - techSkillsCount} more technical skills. Include: programming languages, frameworks, cloud platforms, databases, tools`);
   } else if (techSkillsCount >= 4) {
     score += 2;
     feedback.push(`⚠ ${techSkillsCount} recognized skills`);
-    suggestions.push('Add more industry-standard technical skills to improve ATS matching');
+    suggestions.push(`Add ${15 - techSkillsCount} industry-standard technical skills. Examples: Python, JavaScript, React, AWS, Docker, Kubernetes, SQL`);
   } else {
     feedback.push(`✗ Low technical skill count (${techSkillsCount})`);
-    suggestions.push('Include more relevant technical skills from job descriptions');
+    suggestions.push(`Add ${15 - techSkillsCount} technical skills from job descriptions. Include: languages, frameworks, tools, platforms you know`);
   }
 
   // Total skill density (4 points)
@@ -529,12 +597,14 @@ function analyzeSkills(data: ResumeData, suggestions: string[], strengths: strin
   } else if (skillCount >= 15) {
     score += 3;
     feedback.push(`⚠ ${skillCount} skills listed (aim for 25+ for better coverage)`);
+    suggestions.push(`Add ${25 - skillCount} more skills. Include: specific tools, technologies, methodologies, certifications`);
   } else if (skillCount >= 8) {
     score += 2;
     feedback.push(`⚠ ${skillCount} skills listed`);
+    suggestions.push(`Add ${25 - skillCount} more skills across different categories to improve ATS keyword matching`);
   } else {
     feedback.push(`✗ Only ${skillCount} skills listed`);
-    suggestions.push('Add more skills to increase keyword density for ATS');
+    suggestions.push(`Add ${25 - skillCount} skills. Break down broad skills into specifics (e.g., "React, Vue, Angular" instead of just "Frontend")`);
   }
 
   return {
@@ -646,6 +716,16 @@ function analyzeEducation(data: ResumeData, suggestions: string[], strengths: st
     score += 5;
     feedback.push(`✓ ${education.length} education entries`);
 
+    const incompleteEducation: string[] = [];
+    education.forEach((edu, idx) => {
+      const missing: string[] = [];
+      if (!edu.degree || edu.degree.trim().length < 3) missing.push('degree');
+      if (!edu.institution || edu.institution.trim().length < 3) missing.push('institution');
+      if (missing.length > 0) {
+        incompleteEducation.push(`Education #${idx + 1}: Missing ${missing.join(', ')}`);
+      }
+    });
+
     const hasComplete = education.every(e => e.degree && e.institution);
     if (hasComplete) {
       score += 5;
@@ -654,7 +734,13 @@ function analyzeEducation(data: ResumeData, suggestions: string[], strengths: st
     } else {
       score += 2;
       feedback.push('⚠ Some education entries incomplete');
-      suggestions.push('Ensure all education entries have degree and institution');
+      if (incompleteEducation.length > 0) {
+        incompleteEducation.forEach(issue => {
+          suggestions.push(`Fix: ${issue}. Add missing details`);
+        });
+      } else {
+        suggestions.push('Ensure all education entries have: degree name (e.g., "B.S. Computer Science") and institution name');
+      }
     }
 
     // Check for degree keywords
@@ -719,6 +805,12 @@ function analyzeFormatting(data: ResumeData, suggestions: string[], strengths: s
   const hasExperience = data.experience.length >= 2;
   const hasEducation = data.education.length >= 1;
 
+  const missingSections: string[] = [];
+  if (!hasSummary) missingSections.push('Professional Summary');
+  if (!hasSkills) missingSections.push('Skills Section (need 3+ categories)');
+  if (!hasExperience) missingSections.push('Work Experience (need 2+ positions)');
+  if (!hasEducation) missingSections.push('Education');
+
   const sectionsComplete = [hasSummary, hasSkills, hasExperience, hasEducation].filter(Boolean).length;
   if (sectionsComplete === 4) {
     score += 4;
@@ -727,10 +819,11 @@ function analyzeFormatting(data: ResumeData, suggestions: string[], strengths: s
   } else if (sectionsComplete === 3) {
     score += 3;
     feedback.push(`⚠ ${sectionsComplete}/4 major sections complete`);
+    suggestions.push(`Add missing section: ${missingSections[0]}. This is required for ATS scoring`);
   } else {
     score += 1;
     feedback.push(`✗ Only ${sectionsComplete}/4 major sections complete`);
-    suggestions.push('Complete all major sections (Summary, Skills, Experience, Education) for better ATS scoring');
+    suggestions.push(`Add missing sections: ${missingSections.join(', ')}. All 4 sections are required for optimal ATS score`);
   }
 
   // Check for achievements section (2 points)

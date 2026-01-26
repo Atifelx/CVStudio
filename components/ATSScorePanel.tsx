@@ -148,6 +148,21 @@ export default function ATSScorePanel() {
                         style={{ width: `${cat.percentage}%` }}
                       />
                     </div>
+                    {/* Show specific feedback for low-scoring categories */}
+                    {cat.status !== 'good' && cat.feedback.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <div className="text-[10px] text-gray-600 space-y-0.5">
+                          {cat.feedback
+                            .filter(f => f.startsWith('✗') || f.startsWith('⚠'))
+                            .slice(0, 2)
+                            .map((fb, idx) => (
+                              <div key={idx} className="truncate" title={fb}>
+                                {fb.replace(/^[✗⚠]\s*/, '')}
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -159,16 +174,21 @@ export default function ATSScorePanel() {
                   <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
                     <div className="flex items-center gap-2 mb-2">
                       <Lightbulb size={14} className="text-orange-600" />
-                      <span className="text-xs font-semibold text-orange-800">Top Improvements</span>
+                      <span className="text-xs font-semibold text-orange-800">What to Fix</span>
                     </div>
-                    <ul className="space-y-1">
-                      {atsResult.suggestions.slice(0, 3).map((suggestion, i) => (
-                        <li key={i} className="text-xs text-orange-700 flex items-start gap-1">
-                          <span className="text-orange-400">•</span>
-                          {suggestion}
+                    <ul className="space-y-1.5">
+                      {atsResult.suggestions.slice(0, 5).map((suggestion, i) => (
+                        <li key={i} className="text-xs text-orange-700 flex items-start gap-1.5">
+                          <span className="text-orange-500 mt-0.5">→</span>
+                          <span className="flex-1">{suggestion}</span>
                         </li>
                       ))}
                     </ul>
+                    {atsResult.suggestions.length > 5 && (
+                      <div className="text-[10px] text-orange-600 mt-2 pt-2 border-t border-orange-200">
+                        +{atsResult.suggestions.length - 5} more suggestions
+                      </div>
+                    )}
                   </div>
                 )}
 
