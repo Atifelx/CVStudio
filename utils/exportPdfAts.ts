@@ -82,6 +82,57 @@ function wrapText(
   return lines;
 }
 
+/**
+ * Wrap skills text - tries to keep on one line, breaks at | separators if needed
+ */
+function wrapSkillsText(
+  text: string,
+  font: PDFFont,
+  fontSize: number,
+  contentWidth: number
+): string[] {
+  const sanitized = sanitizeText(text);
+  if (!sanitized) return [];
+  
+  // First, check if entire text fits on one line
+  const fullWidth = font.widthOfTextAtSize(sanitized, fontSize);
+  if (fullWidth <= contentWidth) {
+    return [sanitized];
+  }
+  
+  // If it doesn't fit, try breaking at | separators (skill separators)
+  if (sanitized.includes('|')) {
+    const skills = sanitized.split('|').map(s => s.trim());
+    const lines: string[] = [];
+    let currentLine = '';
+    
+    for (let i = 0; i < skills.length; i++) {
+      const skill = skills[i];
+      const separator = i > 0 ? ' | ' : '';
+      const testLine = currentLine ? `${currentLine}${separator}${skill}` : skill;
+      const width = font.widthOfTextAtSize(testLine, fontSize);
+      
+      if (width <= contentWidth) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) {
+          lines.push(currentLine);
+        }
+        currentLine = skill;
+      }
+    }
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    return lines.length > 0 ? lines : [sanitized];
+  }
+  
+  // Fallback to regular word wrapping
+  return wrapText(sanitized, font, fontSize, contentWidth);
+}
+
 export async function exportToPdfAts(
   resumeData: ResumeData,
   filename: string,
@@ -137,6 +188,7 @@ export async function exportToPdfAts(
         bold?: boolean;
         color?: RGB;
         align?: 'left' | 'center';
+        isSkills?: boolean; // Special handling for skills
       } = {}
     ): void => {
       const fontSize = options.fontSize || baseFontSize;
@@ -144,7 +196,10 @@ export async function exportToPdfAts(
       const color = options.color || blackColor;
       const align = options.align || 'left';
       
-      const lines = wrapText(text, font, fontSize, contentWidth);
+      // Use special wrapping for skills to keep them on one line when possible
+      const lines = options.isSkills 
+        ? wrapSkillsText(text, font, fontSize, contentWidth)
+        : wrapText(text, font, fontSize, contentWidth);
       if (lines.length === 0) return;
       
       const totalHeight = lines.length * lineHeight;
@@ -230,7 +285,8 @@ export async function exportToPdfAts(
       addText('TECHNICAL SKILLS', { fontSize: headingSize, bold: true, color: blueColor });
       addSpace(5);
       skills.forEach((s) => {
-        addText(`${s.category}: ${s.skills}`);
+        // Use isSkills flag for special wrapping that respects | separators
+        addText(`${s.category}: ${s.skills}`, { isSkills: true });
       });
       addSpace(15);
     }
