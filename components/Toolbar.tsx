@@ -85,13 +85,10 @@ export default function Toolbar() {
 
   const baseName = resumeData.header.name.replace(/\s+/g, '_') || 'Resume';
 
-  const handleExportPdfFromWizard = async (options: ExportPdfWizardOptions) => {
+  const handleExportPdfFromWizard = async (_options: ExportPdfWizardOptions) => {
     setIsExportingPdfWide(true);
     try {
-      await exportToPdf('resume-content', `${baseName}_Resume.pdf`, settings, {
-        maxPages: options.pageRange === 'all' ? undefined : options.pageRange,
-        quality: options.quality,
-      });
+      await exportToPdf('resume-content', `${baseName}_Resume.pdf`, settings);
     } catch (error) {
       console.error('PDF export error:', error);
       alert('Failed to export PDF.');
