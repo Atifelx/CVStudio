@@ -48,8 +48,11 @@ export async function exportToPdf(
   };
 
   try {
-    // Portrait only – simple PDF that fits in 1 or 2 pages based on content
+    // Always portrait (never landscape): A4 = 210mm × 297mm (width × height)
     const pageDim = PAGE_DIMENSIONS[settings.pageSize];
+    const portraitWidth = Math.min(pageDim.width, pageDim.height);
+    const portraitHeight = Math.max(pageDim.width, pageDim.height);
+    const pageDimPortrait = { width: portraitWidth, height: portraitHeight, name: pageDim.name };
     const marginMm = 5;
 
     let container: Element | null = element.closest('.resume-container') || element;
@@ -162,13 +165,12 @@ export async function exportToPdf(
       container.classList.remove('pdf-export-compact-1page', 'pdf-export-compact-2pages');
     }
 
-    // Create PDF using pdf-lib
+    // Create PDF using pdf-lib (portrait: width < height)
     const pdfDoc = await PDFDocument.create();
     
-    // Convert mm to points (1 mm = 2.83465 points)
     const mmToPoints = 2.83465;
-    const pdfWidth = pageDim.width * mmToPoints;
-    const pdfHeight = pageDim.height * mmToPoints;
+    const pdfWidth = pageDimPortrait.width * mmToPoints;
+    const pdfHeight = pageDimPortrait.height * mmToPoints;
     const marginPoints = marginMm * mmToPoints;
     const imgWidth = pdfWidth - (marginPoints * 2);
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
