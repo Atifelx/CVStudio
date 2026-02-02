@@ -3,8 +3,10 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import { LayoutSettings, PAGE_DIMENSIONS } from '@/types/layout';
 
 export interface ExportPdfOptions {
-  /** Apply compact layout so content fits in at most this many pages (1 or 2). Portrait only. */
+  /** Apply compact layout so content fits in at most this many pages (1, 2, or 3). Portrait only. */
   maxPages?: number;
+  /** 'standard' = best quality (larger file); 'small' = smaller file (≤2MB). */
+  quality?: 'standard' | 'small';
 }
 
 /**
@@ -60,11 +62,15 @@ export async function exportToPdf(
     if (maxPages && container instanceof HTMLElement) {
       if (maxPages === 1) {
         container.classList.add('pdf-export-compact-1page');
-      } else if (maxPages === 2) {
+      } else if (maxPages === 2 || maxPages === 3) {
         container.classList.add('pdf-export-compact-2pages');
       }
       await new Promise(resolve => setTimeout(resolve, 300));
     }
+
+    const quality = options?.quality ?? 'small';
+    const jpegQuality = quality === 'standard' ? 0.88 : 0.72;
+    const maxSizeBytes = quality === 'standard' ? 4 * 1024 * 1024 : 2 * 1024 * 1024;
 
     // Show loading indicator
     const loadingDiv = document.createElement('div');
@@ -87,9 +93,11 @@ export async function exportToPdf(
     element.scrollIntoView({ block: 'start', behavior: 'instant' });
     await new Promise(resolve => setTimeout(resolve, 150));
 
-    // Calculate scale - keep file size under 2MB (lower scale = smaller file)
+    // Scale: slightly higher for standard quality
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const scale = Math.min(4, Math.max(3, Math.round(dpr * 1.5)));
+    const scale = quality === 'standard'
+      ? Math.min(5, Math.max(4, Math.round(dpr * 2)))
+      : Math.min(4, Math.max(3, Math.round(dpr * 1.5)));
 
     element.classList.add('pdf-export-active');
     container = element.closest('.resume-container') || element;
@@ -176,8 +184,7 @@ export async function exportToPdf(
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const pageContentHeight = pdfHeight - (marginPoints * 2);
 
-    // Convert canvas to JPEG (quality 0.72 for target ≤2MB)
-    const imgData = canvas.toDataURL('image/jpeg', 0.72);
+    const imgData = canvas.toDataURL('image/jpeg', jpegQuality);
     const imgBytes = await fetch(imgData).then(res => res.arrayBuffer());
     const jpegImage = await pdfDoc.embedJpg(imgBytes);
 
@@ -227,7 +234,7 @@ export async function exportToPdf(
           );
         }
 
-        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.72);
+        const pageImgData = pageCanvas.toDataURL('image/jpeg', jpegQuality);
         const pageImgBytes = await fetch(pageImgData).then(res => res.arrayBuffer());
         const pageJpegImage = await pdfDoc.embedJpg(pageImgBytes);
         
@@ -247,13 +254,11 @@ export async function exportToPdf(
     // Remove loading indicator
     document.body.removeChild(loadingDiv);
 
-    // Save the PDF
     let pdfBytes = await pdfDoc.save();
-    const maxSizeBytes = 2 * 1024 * 1024; // 2MB max
-    
-    // Reduce quality if over 2MB
+
+    // Reduce quality if over target size
     if (pdfBytes.length > maxSizeBytes) {
-      const qualities = [0.62, 0.52];
+      const qualities = quality === 'standard' ? [0.75, 0.65, 0.55] : [0.62, 0.52];
       for (const q of qualities) {
         const pdfDoc2 = await PDFDocument.create();
         const jpegImage2 = await pdfDoc2.embedJpg(await fetch(canvas.toDataURL('image/jpeg', q)).then(r => r.arrayBuffer()));

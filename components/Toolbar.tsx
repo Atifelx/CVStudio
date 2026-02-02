@@ -29,7 +29,7 @@ import { exportToDocx } from '@/utils/exportDocx';
 import { exportToPdf } from '@/utils/exportPdf';
 import { exportToPdfAts } from '@/utils/exportPdfAts';
 import SampleResumeDialog from '@/components/SampleResumeDialog';
-import ExportPdfDialog from '@/components/ExportPdfDialog';
+import ExportPdfDialog, { type ExportPdfWizardOptions } from '@/components/ExportPdfDialog';
 import {
   LINE_HEIGHT_OPTIONS,
   FONT_OPTIONS,
@@ -79,36 +79,24 @@ export default function Toolbar() {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingPdfAts, setIsExportingPdfAts] = useState(false);
   const [isExportingPdfWide, setIsExportingPdfWide] = useState(false);
-  const [widePdfMaxPages, setWidePdfMaxPages] = useState<1 | 2 | 3>(2);
   const [showMoreControls, setShowMoreControls] = useState(false);
   const [showSampleResume, setShowSampleResume] = useState(false);
   const [exportPdfDialogMode, setExportPdfDialogMode] = useState<'fit' | 'normal' | null>(null);
 
   const baseName = resumeData.header.name.replace(/\s+/g, '_') || 'Resume';
 
-  const handleExportPdfFit = async () => {
+  const handleExportPdfFromWizard = async (options: ExportPdfWizardOptions) => {
     setIsExportingPdfWide(true);
     try {
       await exportToPdf('resume-content', `${baseName}_Resume.pdf`, settings, {
-        maxPages: widePdfMaxPages,
+        maxPages: options.pageRange === 'all' ? undefined : options.pageRange,
+        quality: options.quality,
       });
-    } catch (error) {
-      console.error('PDF (fit 1–2 p) export error:', error);
-      alert('Failed to export PDF.');
-    } finally {
-      setIsExportingPdfWide(false);
-    }
-  };
-
-  const handleExportPdf = async () => {
-    setIsExportingPdf(true);
-    try {
-      await exportToPdf('resume-content', `${baseName}_Resume.pdf`, settings);
     } catch (error) {
       console.error('PDF export error:', error);
       alert('Failed to export PDF.');
     } finally {
-      setIsExportingPdf(false);
+      setIsExportingPdfWide(false);
     }
   };
 
@@ -274,27 +262,14 @@ export default function Toolbar() {
 
           {/* Export */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setExportPdfDialogMode('fit')}
-                title="Preview then export PDF (portrait, fit 1–2 pages)"
-                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-medium border border-indigo-700"
-              >
-                <FileDown size={14} />
-                Export PDF (1–2 p)
-              </button>
-              <span className="text-xs text-gray-500">Max pages:</span>
-              {([1, 2, 3] as const).map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setWidePdfMaxPages(n)}
-                  className={`px-1.5 py-0.5 text-xs rounded ${widePdfMaxPages === n ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={() => setExportPdfDialogMode('fit')}
+              title="Export as PDF – wizard with page range and quality"
+              className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-medium border border-indigo-700"
+            >
+              <FileDown size={14} />
+              Export PDF
+            </button>
             <button
               onClick={() => setExportPdfDialogMode('normal')}
               title="Preview then export high-quality PDF"
@@ -590,18 +565,12 @@ export default function Toolbar() {
         onClose={() => setShowSampleResume(false)} 
       />
 
-      {/* Export PDF Dialog: preview, page width, zoom, then export */}
+      {/* Export PDF Wizard – Word-style: page range, optimize for, preview, then export */}
       <ExportPdfDialog
         isOpen={exportPdfDialogMode !== null}
         onClose={() => setExportPdfDialogMode(null)}
-        onExport={
-          exportPdfDialogMode === 'fit'
-            ? handleExportPdfFit
-            : exportPdfDialogMode === 'normal'
-              ? handleExportPdf
-              : async () => {}
-        }
-        title={exportPdfDialogMode === 'fit' ? 'Preview & Export PDF (1–2 pages)' : 'Preview & Export PDF'}
+        onExport={handleExportPdfFromWizard}
+        title="Export as PDF"
       />
     </div>
   );
