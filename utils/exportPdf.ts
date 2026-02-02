@@ -3,12 +3,9 @@ import { PDFDocument } from 'pdf-lib';
 import { LayoutSettings, getPageDimensions } from '@/types/layout';
 
 /**
- * High-quality PDF Export (no print dialog)
- *
- * Maximizes sharpness to approach Print → PDF quality:
- * - scale 8–10 × for ~768–960 DPI equivalent (then scaled down into PDF)
- * - PNG lossless, no compression in jsPDF
- * - Fonts loaded, export-friendly CSS, high imageSmoothingQuality
+ * PDF Export (blue "PDF" button) – WYSIWYG, ≤2MB.
+ * Exports what you see: full page width, same font size as UI.
+ * Uses scale 1 + JPEG compression to keep file size small for text resumes.
  */
 export async function exportToPdf(
   elementId: string,
@@ -84,15 +81,16 @@ export async function exportToPdf(
     const originalOverflow = container instanceof HTMLElement ? container.style.overflow : '';
     const originalWidth = container instanceof HTMLElement ? container.style.width : '';
     const originalMaxWidth = container instanceof HTMLElement ? container.style.maxWidth : '';
+    const originalMinWidth = container instanceof HTMLElement ? container.style.minWidth : '';
     if (container instanceof HTMLElement) {
       container.style.overflow = 'visible';
-      // Force full page width so PDF has no empty left/right space and font size matches
       container.style.width = `${contentWidthPx}px`;
       container.style.maxWidth = 'none';
+      container.style.minWidth = `${contentWidthPx}px`;
     }
     
     window.scrollTo(0, 0);
-    await new Promise(resolve => setTimeout(resolve, 150)); // reflow so layout uses new width
+    await new Promise(resolve => setTimeout(resolve, 250)); // reflow so layout = same as PDF
 
     const noPrintElements = element.querySelectorAll('.no-print');
     const originalDisplays: (string | null)[] = [];
@@ -102,15 +100,13 @@ export async function exportToPdf(
       htmlEl.style.display = 'none';
     });
 
-    // Capture full element height - ensure we get all content
     const fullHeight = Math.max(
       element.scrollHeight,
       element.offsetHeight,
       element.clientHeight
     );
     
-    // Cap capture size so PDF stays under 2MB (use content width, not scrollWidth)
-    const captureWidth = Math.min(element.scrollWidth, contentWidthPx);
+    // Always capture at PDF content width so export = full width, same font size, small file
     const canvas = await html2canvas(element, {
       scale,
       useCORS: true,
@@ -118,9 +114,9 @@ export async function exportToPdf(
       backgroundColor: '#ffffff',
       logging: false,
       imageTimeout: 0,
-      width: captureWidth,
+      width: contentWidthPx,
       height: fullHeight,
-      windowWidth: captureWidth,
+      windowWidth: contentWidthPx,
       windowHeight: fullHeight,
       scrollX: 0,
       scrollY: 0,
@@ -132,8 +128,10 @@ export async function exportToPdf(
           // Full width so PDF has no empty sides and font size matches
           const cloneContainer = clonedElement.closest('.resume-container') || clonedElement;
           if (cloneContainer instanceof HTMLElement) {
-            (cloneContainer as HTMLElement).style.width = `${contentWidthPx}px`;
-            (cloneContainer as HTMLElement).style.maxWidth = 'none';
+            const el = cloneContainer as HTMLElement;
+            el.style.width = `${contentWidthPx}px`;
+            el.style.maxWidth = 'none';
+            el.style.minWidth = `${contentWidthPx}px`;
           }
           const style = clonedDoc.createElement('style');
           style.textContent = `
@@ -154,11 +152,11 @@ export async function exportToPdf(
       htmlEl.style.display = originalDisplays[index] || '';
     });
     
-    // Restore container overflow and width
     if (container instanceof HTMLElement) {
       container.style.overflow = originalOverflow;
       container.style.width = originalWidth;
       container.style.maxWidth = originalMaxWidth;
+      container.style.minWidth = originalMinWidth;
     }
     
     element.classList.remove('pdf-export-active');
@@ -175,8 +173,8 @@ export async function exportToPdf(
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const pageContentHeight = pdfHeight - (marginPoints * 2);
 
-    // Start at 0.52 so output stays ≤2MB; retry lower if needed
-    const jpegQuality = 0.52;
+    // Low quality keeps simple text resume ≤2MB; retries if still over
+    const jpegQuality = 0.48;
     const imgData = canvas.toDataURL('image/jpeg', jpegQuality);
     const imgBytes = await fetch(imgData).then(res => res.arrayBuffer());
     const jpegImage = await pdfDoc.embedJpg(imgBytes);
@@ -252,7 +250,7 @@ export async function exportToPdf(
     
     if (pdfBytes.length > maxSizeBytes) {
       console.log(`PDF size ${(pdfBytes.length / 1024 / 1024).toFixed(2)}MB exceeds 2MB, reducing quality...`);
-      const lowerQualities = [0.45, 0.38, 0.32, 0.28];
+      const lowerQualities = [0.42, 0.35, 0.28, 0.22];
       for (const q of lowerQualities) {
         const pdfDoc2 = await PDFDocument.create();
         const jpegImage2 = await pdfDoc2.embedJpg(await fetch(canvas.toDataURL('image/jpeg', q)).then(r => r.arrayBuffer()));
@@ -328,6 +326,7 @@ export async function exportToPdf(
     if (container instanceof HTMLElement) {
       container.style.width = '';
       container.style.maxWidth = '';
+      container.style.minWidth = '';
     }
     const loadingDiv = document.getElementById('pdf-loading');
     if (loadingDiv) {
