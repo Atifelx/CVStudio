@@ -1,7 +1,9 @@
 import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { persistStore, persistReducer, type PersistConfig } from 'redux-persist';
 import resumeReducer from './resumeSlice';
+import layoutReducer from './layoutSlice';
 import { initialResumeState } from './initialResumeState';
+import { DEFAULT_LAYOUT_SETTINGS } from '@/types/layout';
 import type { ResumeState } from './initialResumeState';
 
 /** Noop storage for SSR (Next.js) when window is undefined */
@@ -53,19 +55,39 @@ const persistStorage = typeof window !== 'undefined'
   ? createLocalStorage()
   : createNoopStorage();
 
-const persistConfig: PersistConfig<ResumeState> = {
+export type RootPersistedState = {
+  resume: ResumeState;
+  layout: import('@/types/layout').LayoutSettings;
+};
+
+const persistConfig: PersistConfig<RootPersistedState> = {
   key: 'cv-studio-resume',
   storage: persistStorage,
-  whitelist: ['resumeData', 'editingSection', 'editingItemId'], // Persist all resume state
-  version: 1,
+  whitelist: ['resume', 'layout'],
+  version: 2,
+  migrate: (state: import('redux-persist/es/types').PersistedState, version: number) => {
+    type PersistedState = import('redux-persist/es/types').PersistedState;
+    const migrateSync = (): PersistedState => {
+      if (state == null || typeof state !== 'object') return state;
+      const s = state as Record<string, unknown>;
+      const persistMeta = '_persist' in s ? (s._persist as { version: number; rehydrated: boolean }) : { version: 2, rehydrated: false };
+      if (s.resume != null && s.layout != null) return state as PersistedState;
+      if ('resumeData' in s && s.resume == null) {
+        return { resume: s as unknown as ResumeState, layout: DEFAULT_LAYOUT_SETTINGS, _persist: persistMeta } as PersistedState;
+      }
+      return state as PersistedState;
+    };
+    return Promise.resolve(migrateSync());
+  },
   debug: typeof window !== 'undefined' && process.env.NODE_ENV === 'development',
 };
 
-const persistedReducer = persistReducer(persistConfig, resumeReducer);
-
 const rootReducer = combineReducers({
-  resume: persistedReducer,
+  resume: resumeReducer,
+  layout: layoutReducer,
 });
+
+const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 export const store = configureStore({
   reducer: rootReducer,
@@ -79,14 +101,13 @@ export const store = configureStore({
 });
 
 export const persistor = persistStore(store, null, () => {
-  // Callback when rehydration completes
   if (typeof window !== 'undefined') {
     const state = store.getState();
     console.log('✅ Redux Persist - Rehydration complete:', {
       hasResumeData: !!state.resume?.resumeData,
       hasName: !!state.resume?.resumeData?.header?.name,
-      experienceCount: state.resume?.resumeData?.experience?.length || 0,
-      skillsCount: state.resume?.resumeData?.skills?.length || 0,
+      layoutTemplate: state.layout?.template,
+      layoutColorTheme: state.layout?.colorTheme,
     });
   }
 });
@@ -97,7 +118,8 @@ if (typeof window !== 'undefined') {
     const state = store.getState();
     console.log('💾 Redux Persist - State saved:', {
       hasResumeData: !!state.resume?.resumeData,
-      hasName: !!state.resume?.resumeData?.header?.name,
+      template: state.layout?.template,
+      colorTheme: state.layout?.colorTheme,
       timestamp: new Date().toISOString(),
     });
   });

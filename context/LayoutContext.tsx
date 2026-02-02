@@ -1,6 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import type { RootState } from '@/store';
+import { setLayoutSettings as dispatchLayoutSettings } from '@/store/layoutSlice';
 import {
   LayoutSettings,
   DEFAULT_LAYOUT_SETTINGS,
@@ -70,7 +73,10 @@ interface LayoutContextType {
 const LayoutContext = createContext<LayoutContextType | undefined>(undefined);
 
 export function LayoutProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<LayoutSettings>(DEFAULT_LAYOUT_SETTINGS);
+  const dispatch = useDispatch();
+  const persistedSettings = useSelector((state: RootState) => state.layout);
+  const settings: LayoutSettings = persistedSettings ?? DEFAULT_LAYOUT_SETTINGS;
+
   const [pageInfo, setPageInfo] = useState<PageInfo>({
     pageCount: 1,
     isOverLimit: false,
@@ -89,123 +95,90 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     return usableHeightMm * 3.78;
   }, []);
 
-  // Individual setters
-  const setFontSize = useCallback((fontSize: number) => {
-    setSettings((prev) => ({ ...prev, fontSize }));
-  }, []);
+  const setFontSize = useCallback((fontSize: number) => dispatch(dispatchLayoutSettings({ fontSize })), [dispatch]);
+  const setLineHeight = useCallback((lineHeight: LineHeight) => dispatch(dispatchLayoutSettings({ lineHeight })), [dispatch]);
+  const setFontFamily = useCallback((fontFamily: FontFamily) => dispatch(dispatchLayoutSettings({ fontFamily })), [dispatch]);
+  const setSpacing = useCallback((spacing: SpacingPreset) => dispatch(dispatchLayoutSettings({ spacing })), [dispatch]);
 
-  const setLineHeight = useCallback((lineHeight: LineHeight) => {
-    setSettings((prev) => ({ ...prev, lineHeight }));
-  }, []);
+  const setPageSize = useCallback(
+    (pageSize: PageSize) =>
+      dispatch(
+        dispatchLayoutSettings({
+          pageSize,
+          ...(pageSize !== 'custom' ? { customPageWidthMm: undefined, customPageHeightMm: undefined } : {}),
+        })
+      ),
+    [dispatch]
+  );
 
-  const setFontFamily = useCallback((fontFamily: FontFamily) => {
-    setSettings((prev) => ({ ...prev, fontFamily }));
-  }, []);
+  const setCustomPageDimensions = useCallback(
+    (widthMm: number, heightMm: number) =>
+      dispatch(dispatchLayoutSettings({ pageSize: 'custom', customPageWidthMm: widthMm, customPageHeightMm: heightMm })),
+    [dispatch]
+  );
 
-  const setSpacing = useCallback((spacing: SpacingPreset) => {
-    setSettings((prev) => ({ ...prev, spacing }));
-  }, []);
+  const setMargin = useCallback((margin: MarginPreset) => dispatch(dispatchLayoutSettings({ margin })), [dispatch]);
+  const setContentWidth = useCallback((contentWidth: ContentWidth) => dispatch(dispatchLayoutSettings({ contentWidth })), [dispatch]);
 
-  const setPageSize = useCallback((pageSize: PageSize) => {
-    setSettings((prev) => ({
-      ...prev,
-      pageSize,
-      ...(pageSize !== 'custom' ? { customPageWidthMm: undefined, customPageHeightMm: undefined } : {}),
-    }));
-  }, []);
+  const setVerticalSpacing = useCallback(
+    (spacing: Partial<VerticalSpacing>) =>
+      dispatch(dispatchLayoutSettings({ verticalSpacing: { ...settings.verticalSpacing, ...spacing } })),
+    [dispatch, settings.verticalSpacing]
+  );
 
-  const setCustomPageDimensions = useCallback((widthMm: number, heightMm: number) => {
-    setSettings((prev) => ({
-      ...prev,
-      pageSize: 'custom',
-      customPageWidthMm: widthMm,
-      customPageHeightMm: heightMm,
-    }));
-  }, []);
+  const setTargetPages = useCallback((targetPages: TargetPages) => dispatch(dispatchLayoutSettings({ targetPages })), [dispatch]);
+  const setTemplate = useCallback((template: TemplateType) => dispatch(dispatchLayoutSettings({ template })), [dispatch]);
+  const setColorTheme = useCallback((colorTheme: ColorTheme) => dispatch(dispatchLayoutSettings({ colorTheme })), [dispatch]);
+  const setPrintCompact = useCallback((printCompact: boolean) => dispatch(dispatchLayoutSettings({ printCompact })), [dispatch]);
+  const setPrintOrientation = useCallback((printOrientation: PrintOrientation) => dispatch(dispatchLayoutSettings({ printOrientation })), [dispatch]);
 
-  const setMargin = useCallback((margin: MarginPreset) => {
-    setSettings((prev) => ({ ...prev, margin }));
-  }, []);
-
-  const setContentWidth = useCallback((contentWidth: ContentWidth) => {
-    setSettings((prev) => ({ ...prev, contentWidth }));
-  }, []);
-
-  const setVerticalSpacing = useCallback((spacing: Partial<VerticalSpacing>) => {
-    setSettings((prev) => ({
-      ...prev,
-      verticalSpacing: { ...prev.verticalSpacing, ...spacing },
-    }));
-  }, []);
-
-  const setTargetPages = useCallback((targetPages: TargetPages) => {
-    setSettings((prev) => ({ ...prev, targetPages }));
-  }, []);
-
-  const setTemplate = useCallback((template: TemplateType) => {
-    setSettings((prev) => ({ ...prev, template }));
-  }, []);
-
-  const setColorTheme = useCallback((colorTheme: ColorTheme) => {
-    setSettings((prev) => ({ ...prev, colorTheme }));
-  }, []);
-
-  const setPrintCompact = useCallback((printCompact: boolean) => {
-    setSettings((prev) => ({ ...prev, printCompact }));
-  }, []);
-
-  const setPrintOrientation = useCallback((printOrientation: PrintOrientation) => {
-    setSettings((prev) => ({ ...prev, printOrientation }));
-  }, []);
-
-  // Presets - preserve current template, colorTheme, and print options when applying presets
   const resetToDefaults = useCallback(() => {
-    setSettings((prev) => ({
-      ...DEFAULT_LAYOUT_SETTINGS,
-      template: prev.template,
-      colorTheme: prev.colorTheme,
-      printCompact: prev.printCompact,
-      printOrientation: prev.printOrientation,
-    }));
-  }, []);
+    dispatch(
+      dispatchLayoutSettings({
+        ...DEFAULT_LAYOUT_SETTINGS,
+        template: settings.template,
+        colorTheme: settings.colorTheme,
+        printCompact: settings.printCompact,
+        printOrientation: settings.printOrientation,
+      })
+    );
+  }, [dispatch, settings.template, settings.colorTheme, settings.printCompact, settings.printOrientation]);
 
   const applyCompactPreset = useCallback(() => {
-    setSettings((prev) => ({
-      ...COMPACT_LAYOUT_SETTINGS,
-      template: prev.template,
-      colorTheme: prev.colorTheme,
-      printCompact: prev.printCompact,
-      printOrientation: prev.printOrientation,
-    }));
-  }, []);
+    dispatch(
+      dispatchLayoutSettings({
+        ...COMPACT_LAYOUT_SETTINGS,
+        template: settings.template,
+        colorTheme: settings.colorTheme,
+        printCompact: settings.printCompact,
+        printOrientation: settings.printOrientation,
+      })
+    );
+  }, [dispatch, settings.template, settings.colorTheme, settings.printCompact, settings.printOrientation]);
 
   const applyUltraCompactPreset = useCallback(() => {
-    setSettings((prev) => ({
-      ...ULTRA_COMPACT_SETTINGS,
-      template: prev.template,
-      colorTheme: prev.colorTheme,
-      printCompact: prev.printCompact,
-      printOrientation: prev.printOrientation,
-    }));
-  }, []);
+    dispatch(
+      dispatchLayoutSettings({
+        ...ULTRA_COMPACT_SETTINGS,
+        template: settings.template,
+        colorTheme: settings.colorTheme,
+        printCompact: settings.printCompact,
+        printOrientation: settings.printOrientation,
+      })
+    );
+  }, [dispatch, settings.template, settings.colorTheme, settings.printCompact, settings.printOrientation]);
 
-  /**
-   * AUTO-BALANCE PRESET
-   * Applies professionally proportioned settings that create a clean, 
-   * uniform appearance based on industry-standard resume formatting.
-   * 
-   * This is useful when a user has manually adjusted settings and 
-   * wants to return to a balanced, professional look.
-   */
   const applyBalancedPreset = useCallback(() => {
-    setSettings((prev) => ({
-      ...BALANCED_LAYOUT_SETTINGS,
-      template: prev.template,
-      colorTheme: prev.colorTheme,
-      printCompact: prev.printCompact,
-      printOrientation: prev.printOrientation,
-    }));
-  }, []);
+    dispatch(
+      dispatchLayoutSettings({
+        ...BALANCED_LAYOUT_SETTINGS,
+        template: settings.template,
+        colorTheme: settings.colorTheme,
+        printCompact: settings.printCompact,
+        printOrientation: settings.printOrientation,
+      })
+    );
+  }, [dispatch, settings.template, settings.colorTheme, settings.printCompact, settings.printOrientation]);
 
   // Auto-fit algorithm
   const autoFitToPages = useCallback((targetPages: 1 | 2 | 3) => {
@@ -285,12 +258,12 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    setSettings(newSettings);
-    
+    dispatch(dispatchLayoutSettings(newSettings));
+
     setTimeout(() => {
       autoFitInProgress.current = false;
     }, 500);
-  }, [pageInfo.pageCount, settings]);
+  }, [dispatch, pageInfo.pageCount, settings]);
 
   // Page count update – only setState when values actually change to avoid feedback loops
   const prevPageInfoRef = useRef<{ pageCount: number; contentHeight: number; usableHeight: number } | null>(null);
