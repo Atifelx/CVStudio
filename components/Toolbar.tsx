@@ -29,6 +29,7 @@ import { exportToDocx } from '@/utils/exportDocx';
 import { exportToPdf } from '@/utils/exportPdf';
 import { exportToPdfAts } from '@/utils/exportPdfAts';
 import SampleResumeDialog from '@/components/SampleResumeDialog';
+import ExportPdfDialog from '@/components/ExportPdfDialog';
 import {
   LINE_HEIGHT_OPTIONS,
   FONT_OPTIONS,
@@ -81,6 +82,7 @@ export default function Toolbar() {
   const [widePdfMaxPages, setWidePdfMaxPages] = useState<1 | 2 | 3>(2);
   const [showMoreControls, setShowMoreControls] = useState(false);
   const [showSampleResume, setShowSampleResume] = useState(false);
+  const [exportPdfDialogMode, setExportPdfDialogMode] = useState<'fit' | 'normal' | null>(null);
 
   const baseName = resumeData.header.name.replace(/\s+/g, '_') || 'Resume';
 
@@ -257,7 +259,7 @@ export default function Toolbar() {
             Breaks
           </button>
 
-          {/* Print settings (affects Print → PDF) */}
+          {/* Print settings (affects browser Print → PDF) */}
           <div className="flex items-center gap-3 flex-wrap">
             <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
               <input
@@ -268,37 +270,17 @@ export default function Toolbar() {
               />
               Compact print (1–3 pages)
             </label>
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-500">Orientation:</span>
-              <button
-                type="button"
-                onClick={() => setPrintOrientation('portrait')}
-                className={`px-2 py-0.5 text-xs rounded ${settings.printOrientation === 'portrait' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                title="Portrait (tall)"
-              >
-                Portrait
-              </button>
-              <button
-                type="button"
-                onClick={() => setPrintOrientation('landscape')}
-                className={`px-2 py-0.5 text-xs rounded ${settings.printOrientation === 'landscape' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                title="Landscape (wide)"
-              >
-                Landscape
-              </button>
-            </div>
           </div>
 
           {/* Export */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1">
               <button
-                onClick={handleExportPdfFit}
-                disabled={isExportingPdfWide}
-                title="Export PDF (portrait). Compact layout fits in 1 or 2 pages based on max pages below."
-                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:bg-indigo-400 text-xs font-medium border border-indigo-700"
+                onClick={() => setExportPdfDialogMode('fit')}
+                title="Preview then export PDF (portrait, fit 1–2 pages)"
+                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-medium border border-indigo-700"
               >
-                {isExportingPdfWide ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+                <FileDown size={14} />
                 Export PDF (1–2 p)
               </button>
               <span className="text-xs text-gray-500">Max pages:</span>
@@ -314,12 +296,11 @@ export default function Toolbar() {
               ))}
             </div>
             <button
-              onClick={handleExportPdf}
-              disabled={isExportingPdf}
-              title="High-quality PDF (no dialog) · Sharp, print-ready · Same quality as Print → PDF"
-              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 text-xs font-medium"
+              onClick={() => setExportPdfDialogMode('normal')}
+              title="Preview then export high-quality PDF"
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium"
             >
-              {isExportingPdf ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+              <FileDown size={14} />
               PDF
             </button>
             <button
@@ -607,6 +588,20 @@ export default function Toolbar() {
       <SampleResumeDialog 
         isOpen={showSampleResume} 
         onClose={() => setShowSampleResume(false)} 
+      />
+
+      {/* Export PDF Dialog: preview, page width, zoom, then export */}
+      <ExportPdfDialog
+        isOpen={exportPdfDialogMode !== null}
+        onClose={() => setExportPdfDialogMode(null)}
+        onExport={
+          exportPdfDialogMode === 'fit'
+            ? handleExportPdfFit
+            : exportPdfDialogMode === 'normal'
+              ? handleExportPdf
+              : async () => {}
+        }
+        title={exportPdfDialogMode === 'fit' ? 'Preview & Export PDF (1–2 pages)' : 'Preview & Export PDF'}
       />
     </div>
   );
