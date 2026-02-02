@@ -3,9 +3,7 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import { LayoutSettings, PAGE_DIMENSIONS } from '@/types/layout';
 
 export interface ExportPdfOptions {
-  /** Export as wide (landscape) pages */
-  landscape?: boolean;
-  /** Apply compact layout so content fits in at most this many pages (e.g. 2) */
+  /** Apply compact layout so content fits in at most this many pages (1 or 2). Portrait only. */
   maxPages?: number;
 }
 
@@ -50,16 +48,18 @@ export async function exportToPdf(
   };
 
   try {
-    // Landscape = wide page (A4 landscape: 297×210 mm)
-    const pageDim = options?.landscape
-      ? { width: 297, height: 210, name: 'A4 Landscape' }
-      : PAGE_DIMENSIONS[settings.pageSize];
+    // Portrait only – simple PDF that fits in 1 or 2 pages based on content
+    const pageDim = PAGE_DIMENSIONS[settings.pageSize];
     const marginMm = 5;
 
     let container: Element | null = element.closest('.resume-container') || element;
     const maxPages = options?.maxPages;
-    if (maxPages === 2 && container instanceof HTMLElement) {
-      container.classList.add('pdf-export-compact-2pages');
+    if (maxPages && container instanceof HTMLElement) {
+      if (maxPages === 1) {
+        container.classList.add('pdf-export-compact-1page');
+      } else if (maxPages === 2) {
+        container.classList.add('pdf-export-compact-2pages');
+      }
       await new Promise(resolve => setTimeout(resolve, 300));
     }
 
@@ -158,8 +158,8 @@ export async function exportToPdf(
     
     // Remove export class and compact class (if applied)
     element.classList.remove('pdf-export-active');
-    if (maxPages === 2 && container instanceof HTMLElement) {
-      container.classList.remove('pdf-export-compact-2pages');
+    if (maxPages && container instanceof HTMLElement) {
+      container.classList.remove('pdf-export-compact-1page', 'pdf-export-compact-2pages');
     }
 
     // Create PDF using pdf-lib
@@ -324,7 +324,7 @@ export async function exportToPdf(
   } catch (error) {
     console.error('PDF export error:', error);
     
-    element.closest('.resume-container')?.classList.remove('pdf-export-compact-2pages');
+    element.closest('.resume-container')?.classList.remove('pdf-export-compact-1page', 'pdf-export-compact-2pages');
     const loadingDiv = document.getElementById('pdf-loading');
     if (loadingDiv) {
       document.body.removeChild(loadingDiv);

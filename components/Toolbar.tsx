@@ -84,16 +84,15 @@ export default function Toolbar() {
 
   const baseName = resumeData.header.name.replace(/\s+/g, '_') || 'Resume';
 
-  const handleExportPdfWide = async () => {
+  const handleExportPdfFit = async () => {
     setIsExportingPdfWide(true);
     try {
-      await exportToPdf('resume-content', `${baseName}_Resume_Wide.pdf`, settings, {
-        landscape: true,
+      await exportToPdf('resume-content', `${baseName}_Resume.pdf`, settings, {
         maxPages: widePdfMaxPages,
       });
     } catch (error) {
-      console.error('Wide PDF export error:', error);
-      alert('Failed to export wide PDF.');
+      console.error('PDF (fit 1–2 p) export error:', error);
+      alert('Failed to export PDF.');
     } finally {
       setIsExportingPdfWide(false);
     }
@@ -294,13 +293,13 @@ export default function Toolbar() {
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1">
               <button
-                onClick={handleExportPdfWide}
+                onClick={handleExportPdfFit}
                 disabled={isExportingPdfWide}
-                title="Export wide PDF directly (landscape, no print dialog). Compact layout fits in max pages below."
+                title="Export PDF (portrait). Compact layout fits in 1 or 2 pages based on max pages below."
                 className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:bg-indigo-400 text-xs font-medium border border-indigo-700"
               >
                 {isExportingPdfWide ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
-                Export PDF (wide)
+                Export PDF (1–2 p)
               </button>
               <span className="text-xs text-gray-500">Max pages:</span>
               {([1, 2, 3] as const).map((n) => (
