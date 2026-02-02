@@ -38,6 +38,8 @@ export type ContentWidth = 100 | 95 | 90 | 85 | 80;
 
 export type TargetPages = 1 | 2 | 3 | null;
 
+export type PrintOrientation = 'portrait' | 'landscape';
+
 // Font families for resume - ATS-friendly and readable
 export type FontFamily = 
   | 'Times New Roman'  // Classic, ATS-friendly
@@ -76,18 +78,25 @@ export type ColorTheme =
   | 'graphite'   // Graphite - subtle elegance
   | 'steel'      // Steel blue-gray - tech professional
   | 'midnight'   // Midnight blue - sophisticated
-  | 'espresso';  // Deep brown - warm executive
+  | 'espresso'   // Deep brown - warm executive
+  | 'lightgrey'  // Light grey - soft, readable
+  | 'lightblue'  // Light blue - soft professional
+  | 'silver';    // Silver - neutral light
 
-export const COLOR_THEMES: Array<{ value: ColorTheme; label: string; primary: string; gradient: string; accent: string }> = [
-  // Rich Professional Colors (most used in high-quality resumes)
-  { value: 'charcoal', label: 'Rich Charcoal', primary: '#2d3748', gradient: 'from-gray-800 to-gray-700', accent: 'gray-700' },
-  { value: 'black', label: 'Deep Black', primary: '#1a1a1a', gradient: 'from-black to-gray-900', accent: 'gray-900' },
-  { value: 'slate', label: 'Slate Gray', primary: '#475569', gradient: 'from-slate-700 to-slate-600', accent: 'slate-600' },
-  { value: 'navy', label: 'Navy Blue', primary: '#1e3a5f', gradient: 'from-slate-900 to-slate-800', accent: 'slate-800' },
+export const COLOR_THEMES: Array<{ value: ColorTheme; label: string; primary: string; gradient: string; accent: string; light?: boolean }> = [
+  // Rich Professional (dark header, white text)
+  { value: 'charcoal', label: 'Charcoal', primary: '#2d3748', gradient: 'from-gray-800 to-gray-700', accent: 'gray-700' },
+  { value: 'black', label: 'Black', primary: '#1a1a1a', gradient: 'from-black to-gray-900', accent: 'gray-900' },
+  { value: 'slate', label: 'Slate', primary: '#475569', gradient: 'from-slate-700 to-slate-600', accent: 'slate-600' },
+  { value: 'navy', label: 'Navy', primary: '#1e3a5f', gradient: 'from-slate-900 to-slate-800', accent: 'slate-800' },
   { value: 'graphite', label: 'Graphite', primary: '#374151', gradient: 'from-gray-700 to-gray-600', accent: 'gray-600' },
-  { value: 'steel', label: 'Steel Blue', primary: '#334155', gradient: 'from-slate-800 to-slate-700', accent: 'slate-700' },
+  { value: 'steel', label: 'Steel', primary: '#334155', gradient: 'from-slate-800 to-slate-700', accent: 'slate-700' },
   { value: 'midnight', label: 'Midnight', primary: '#0f172a', gradient: 'from-slate-950 to-slate-900', accent: 'slate-900' },
   { value: 'espresso', label: 'Espresso', primary: '#292524', gradient: 'from-stone-800 to-stone-700', accent: 'stone-700' },
+  // Light colors (light header, dark text)
+  { value: 'lightgrey', label: 'Light Grey', primary: '#e5e7eb', gradient: 'from-gray-200 to-gray-100', accent: 'gray-500', light: true },
+  { value: 'lightblue', label: 'Light Blue', primary: '#dbeafe', gradient: 'from-blue-100 to-blue-50', accent: 'blue-600', light: true },
+  { value: 'silver', label: 'Silver', primary: '#f1f5f9', gradient: 'from-slate-200 to-slate-100', accent: 'slate-600', light: true },
 ];
 
 export interface VerticalSpacing {
@@ -147,6 +156,10 @@ export interface LayoutSettings {
   targetPages: TargetPages;
   template: TemplateType;
   colorTheme: ColorTheme;
+  /** Tighter spacing when printing to fit 1–3 pages */
+  printCompact: boolean;
+  /** Print orientation: portrait (default) or landscape (wide) */
+  printOrientation: PrintOrientation;
 }
 
 // DEFAULT: Standard resume formatting (11pt like MS Word)
@@ -162,7 +175,9 @@ export const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = {
   verticalSpacing: DEFAULT_VERTICAL_SPACING,
   targetPages: null,
   template: 'modern',
-  colorTheme: 'charcoal', // Rich charcoal - professional default
+  colorTheme: 'charcoal',
+  printCompact: true,
+  printOrientation: 'portrait',
 };
 
 // COMPACT: Smaller text for fitting more content
@@ -178,6 +193,8 @@ export const COMPACT_LAYOUT_SETTINGS: LayoutSettings = {
   targetPages: null,
   template: 'modern',
   colorTheme: 'charcoal',
+  printCompact: true,
+  printOrientation: 'portrait',
 };
 
 // ULTRA COMPACT: Maximum density (9pt minimum readable)
@@ -193,6 +210,8 @@ export const ULTRA_COMPACT_SETTINGS: LayoutSettings = {
   targetPages: 1,
   template: 'modern',
   colorTheme: 'charcoal',
+  printCompact: true,
+  printOrientation: 'portrait',
 };
 
 // BALANCED: Professional look (11pt standard)
@@ -208,4 +227,6 @@ export const BALANCED_LAYOUT_SETTINGS: LayoutSettings = {
   targetPages: null,
   template: 'modern',
   colorTheme: 'charcoal',
+  printCompact: true,
+  printOrientation: 'portrait',
 };

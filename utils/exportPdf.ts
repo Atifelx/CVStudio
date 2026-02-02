@@ -42,6 +42,8 @@ export async function exportToPdf(
     targetPages: null,
     template: 'modern',
     colorTheme: 'charcoal',
+    printCompact: true,
+    printOrientation: 'portrait',
   };
 
   try {

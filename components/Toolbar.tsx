@@ -42,6 +42,7 @@ import {
   FontFamily,
   TemplateType,
   ColorTheme,
+  PrintOrientation,
 } from '@/types/layout';
 
 /**
@@ -61,6 +62,8 @@ export default function Toolbar() {
     setVerticalSpacing,
     setTemplate,
     setColorTheme,
+    setPrintCompact,
+    setPrintOrientation,
     resetToDefaults,
     applyCompactPreset,
     applyUltraCompactPreset,
@@ -237,6 +240,38 @@ export default function Toolbar() {
             {showPageBreaks ? <Eye size={12} className="inline mr-1" /> : <EyeOff size={12} className="inline mr-1" />}
             Breaks
           </button>
+
+          {/* Print settings (affects Print → PDF) */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.printCompact !== false}
+                onChange={(e) => setPrintCompact(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              Compact print (1–3 pages)
+            </label>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-500">Orientation:</span>
+              <button
+                type="button"
+                onClick={() => setPrintOrientation('portrait')}
+                className={`px-2 py-0.5 text-xs rounded ${settings.printOrientation === 'portrait' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                title="Portrait (tall)"
+              >
+                Portrait
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrintOrientation('landscape')}
+                className={`px-2 py-0.5 text-xs rounded ${settings.printOrientation === 'landscape' ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                title="Landscape (wide)"
+              >
+                Landscape
+              </button>
+            </div>
+          </div>
 
           {/* Export */}
           <div className="flex flex-wrap items-center gap-2">

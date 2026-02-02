@@ -284,13 +284,36 @@ body {
     padding: 0;
   }
 
+  /* Compact print: fit resume in 1–3 pages (tighter spacing, slightly smaller text) */
+  body.print-compact .resume-container {
+    font-size: calc(var(--resume-font-size) * 0.92) !important;
+    line-height: 1.15 !important;
+  }
+  body.print-compact .resume-container .resume-section {
+    margin-bottom: 10px !important;
+  }
+  body.print-compact .resume-container .experience-entry,
+  body.print-compact .resume-container .education-entry {
+    margin-bottom: 8px !important;
+  }
+  body.print-compact .resume-container p,
+  body.print-compact .resume-container li {
+    margin-bottom: 2px !important;
+  }
+  body.print-compact .resume-container h1 {
+    font-size: 1.5em !important;
+  }
+  body.print-compact .resume-container h2,
+  body.print-compact .resume-container h3 {
+    font-size: 1.15em !important;
+    margin-bottom: 4px !important;
+  }
+
   .resume-container {
     box-shadow: none !important;
     max-width: 100% !important;
     margin: 0 !important;
-    /* Ensure proper spacing is preserved */
     padding: 0 !important;
-    /* Prevent text compression */
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -348,6 +371,11 @@ body {
 
   @page {
     margin: 0.5in;
+  }
+  /* Wider horizontal space when not overridden by landscape style */
+  body.print-compact .resume-container {
+    padding-left: 0.3in !important;
+    padding-right: 0.3in !important;
   }
 }
 

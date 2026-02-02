@@ -9,16 +9,19 @@ import EditSection, { InputField } from '@/components/EditSection';
 import { HeaderData } from '@/types/resume';
 import { COLOR_THEMES } from '@/types/layout';
 
-// Map color themes to actual gradient CSS values
+// Map every ColorTheme to gradient CSS values (avoids crash when theme is missing)
 const GRADIENT_STYLES: Record<string, { from: string; to: string }> = {
-  blue: { from: '#1e3a8a', to: '#1d4ed8' },
-  navy: { from: '#0f172a', to: '#334155' },
-  teal: { from: '#134e4a', to: '#0f766e' },
-  green: { from: '#14532d', to: '#166534' },
-  purple: { from: '#581c87', to: '#7c3aed' },
-  maroon: { from: '#7f1d1d', to: '#991b1b' },
-  charcoal: { from: '#1f2937', to: '#4b5563' },
-  black: { from: '#171717', to: '#404040' },
+  charcoal: { from: '#2d3748', to: '#4a5568' },
+  black: { from: '#1a1a1a', to: '#2d2d2d' },
+  slate: { from: '#475569', to: '#64748b' },
+  navy: { from: '#1e3a5f', to: '#334155' },
+  graphite: { from: '#374151', to: '#4b5563' },
+  steel: { from: '#334155', to: '#475569' },
+  midnight: { from: '#0f172a', to: '#1e293b' },
+  espresso: { from: '#292524', to: '#44403c' },
+  lightgrey: { from: '#e5e7eb', to: '#f3f4f6' },
+  lightblue: { from: '#dbeafe', to: '#eff6ff' },
+  silver: { from: '#e2e8f0', to: '#f1f5f9' },
 };
 
 /**
@@ -31,9 +34,11 @@ export default function HeaderSection() {
   const { header } = resumeData;
   const isClassic = settings.template === 'classic';
   
-  // Get color theme for modern template
+  // Get color theme for modern template (safe fallback to avoid crash)
   const colorTheme = COLOR_THEMES.find(c => c.value === settings.colorTheme) || COLOR_THEMES[0];
-  const gradientStyle = GRADIENT_STYLES[settings.colorTheme || 'blue'];
+  const themeKey = settings.colorTheme || 'charcoal';
+  const gradientStyle = GRADIENT_STYLES[themeKey] || GRADIENT_STYLES['charcoal'];
+  const isLightTheme = colorTheme.light === true;
   
   const [editData, setEditData] = useState<HeaderData>(header);
   const isEditing = editingSection === 'header';
@@ -89,7 +94,7 @@ export default function HeaderSection() {
   if (isEditing) {
     return (
       <div 
-        className={isClassic ? "bg-gray-100 p-6 border-b border-gray-300" : "text-white p-6"}
+        className={isClassic ? "bg-gray-100 p-6 border-b border-gray-300" : `p-6 ${isLightTheme ? "text-gray-900" : "text-white"}`}
         style={isClassic ? undefined : { background: `linear-gradient(to right, ${gradientStyle.from}, ${gradientStyle.to})` }}
       >
         <EditSection onSave={handleSave} onCancel={handleCancel} title="Header">
@@ -131,7 +136,7 @@ export default function HeaderSection() {
         onClick={handleEdit}
         className={isClassic 
           ? "bg-gray-50 p-8 cursor-pointer hover:bg-gray-100 transition-all border-b border-gray-200"
-          : "text-white p-8 cursor-pointer hover:opacity-90 transition-all"
+          : `p-8 cursor-pointer hover:opacity-90 transition-all ${isLightTheme ? "text-gray-900" : "text-white"}`
         }
         style={isClassic ? undefined : { background: `linear-gradient(to right, ${gradientStyle.from}, ${gradientStyle.to})` }}
       >
@@ -236,9 +241,9 @@ export default function HeaderSection() {
 
   // Modern template view (with dynamic color theme)
   return (
-    <ResumeSection onEdit={handleEdit} showEditButton={true}>
+    <ResumeSection onEdit={handleEdit} showEditButton={true} headerLight={isLightTheme}>
       <div 
-        className="text-white transition-all duration-150"
+        className={`transition-all duration-150 ${isLightTheme ? "text-gray-900" : "text-white"}`}
         style={{ 
           background: `linear-gradient(to right, ${gradientStyle.from}, ${gradientStyle.to})`,
           padding: `${headerPadding}px ${Math.round(24 * scaleFactor + 8)}px`,
@@ -310,7 +315,7 @@ export default function HeaderSection() {
         {/* Location & Authorization - scales proportionally */}
         {(header.contact.location || header.contact.workAuthorization || header.contact.relocation || header.contact.travel) && (
           <div 
-            className="border-t border-white/30 transition-all duration-150"
+            className={`border-t transition-all duration-150 ${isLightTheme ? 'border-gray-300/70' : 'border-white/30'}`}
             style={{ 
               marginTop: `${Math.max(4, sectionGap)}px`,
               paddingTop: `${Math.max(4, sectionGap)}px`,

@@ -12,6 +12,8 @@ interface ResumeSectionProps {
   isEditing?: boolean;
   showEditButton?: boolean;
   className?: string;
+  /** When true (e.g. header with light color theme), edit button uses dark style */
+  headerLight?: boolean;
 }
 
 /**
@@ -25,6 +27,7 @@ export default function ResumeSection({
   isEditing = false,
   showEditButton = true,
   className = '',
+  headerLight = false,
 }: ResumeSectionProps) {
   const { settings } = useLayout();
   const isClassic = settings.template === 'classic';
@@ -99,7 +102,9 @@ export default function ResumeSection({
           className={`absolute top-2 right-2 p-2 rounded-lg transition-all opacity-0 group-hover:opacity-100 no-print z-10 ${
             isClassic 
               ? 'text-gray-400 hover:text-gray-600 hover:bg-gray-100' 
-              : 'text-white/70 hover:text-white hover:bg-white/20'
+              : headerLight 
+                ? 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/80' 
+                : 'text-white/70 hover:text-white hover:bg-white/20'
           }`}
           title="Edit this section"
         >

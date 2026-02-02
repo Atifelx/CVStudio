@@ -17,6 +17,7 @@ import {
   FontFamily,
   TemplateType,
   ColorTheme,
+  PrintOrientation,
   COLOR_THEMES,
   PAGE_DIMENSIONS,
   MARGIN_VALUES,
@@ -46,6 +47,8 @@ interface LayoutContextType {
   setTargetPages: (pages: TargetPages) => void;
   setTemplate: (template: TemplateType) => void;
   setColorTheme: (color: ColorTheme) => void;
+  setPrintCompact: (v: boolean) => void;
+  setPrintOrientation: (v: PrintOrientation) => void;
   
   // Presets
   resetToDefaults: () => void;
@@ -133,12 +136,22 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     setSettings((prev) => ({ ...prev, colorTheme }));
   }, []);
 
-  // Presets - preserve current template and colorTheme when applying presets
+  const setPrintCompact = useCallback((printCompact: boolean) => {
+    setSettings((prev) => ({ ...prev, printCompact }));
+  }, []);
+
+  const setPrintOrientation = useCallback((printOrientation: PrintOrientation) => {
+    setSettings((prev) => ({ ...prev, printOrientation }));
+  }, []);
+
+  // Presets - preserve current template, colorTheme, and print options when applying presets
   const resetToDefaults = useCallback(() => {
     setSettings((prev) => ({
       ...DEFAULT_LAYOUT_SETTINGS,
       template: prev.template,
       colorTheme: prev.colorTheme,
+      printCompact: prev.printCompact,
+      printOrientation: prev.printOrientation,
     }));
   }, []);
 
@@ -147,6 +160,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
       ...COMPACT_LAYOUT_SETTINGS,
       template: prev.template,
       colorTheme: prev.colorTheme,
+      printCompact: prev.printCompact,
+      printOrientation: prev.printOrientation,
     }));
   }, []);
 
@@ -155,6 +170,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
       ...ULTRA_COMPACT_SETTINGS,
       template: prev.template,
       colorTheme: prev.colorTheme,
+      printCompact: prev.printCompact,
+      printOrientation: prev.printOrientation,
     }));
   }, []);
 
@@ -171,6 +188,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
       ...BALANCED_LAYOUT_SETTINGS,
       template: prev.template,
       colorTheme: prev.colorTheme,
+      printCompact: prev.printCompact,
+      printOrientation: prev.printOrientation,
     }));
   }, []);
 
@@ -190,7 +209,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     let newSettings: LayoutSettings = { ...settings };
 
     if (targetPages === 1) {
-      newSettings = { ...ULTRA_COMPACT_SETTINGS, targetPages: 1, template: settings.template, colorTheme: settings.colorTheme };
+      newSettings = { ...ULTRA_COMPACT_SETTINGS, targetPages: 1, template: settings.template, colorTheme: settings.colorTheme, printCompact: settings.printCompact, printOrientation: settings.printOrientation };
     } else if (targetPages === 2) {
       if (reductionNeeded > 1.5) {
         newSettings = {
@@ -209,6 +228,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
           targetPages: 2,
           template: settings.template,
           colorTheme: settings.colorTheme,
+          printCompact: settings.printCompact,
+          printOrientation: settings.printOrientation,
         };
       } else {
         newSettings = {
@@ -245,6 +266,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         targetPages: 3,
         template: settings.template,
         colorTheme: settings.colorTheme,
+        printCompact: settings.printCompact,
+        printOrientation: settings.printOrientation,
       };
     }
 
@@ -327,6 +350,34 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     
   }, [settings, getUsableHeightPx]);
 
+  // Apply print options to document for browser print dialog
+  useEffect(() => {
+    const body = document.body;
+    if (settings.printCompact) {
+      body.classList.add('print-compact');
+    } else {
+      body.classList.remove('print-compact');
+    }
+  }, [settings.printCompact]);
+
+  useEffect(() => {
+    let el = document.getElementById('cv-studio-print-page-style') as HTMLStyleElement | null;
+    if (settings.printOrientation === 'landscape') {
+      if (!el) {
+        el = document.createElement('style');
+        el.id = 'cv-studio-print-page-style';
+        document.head.appendChild(el);
+      }
+      el.textContent = '@media print { @page { size: A4 landscape; margin: 0.4in; } }';
+    } else {
+      if (el) el.remove();
+    }
+    return () => {
+      const e = document.getElementById('cv-studio-print-page-style');
+      if (e) e.remove();
+    };
+  }, [settings.printOrientation]);
+
   return (
       <LayoutContext.Provider
       value={{
@@ -342,6 +393,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         setTargetPages,
         setTemplate,
         setColorTheme,
+        setPrintCompact,
+        setPrintOrientation,
         resetToDefaults,
         applyCompactPreset,
         applyUltraCompactPreset,
