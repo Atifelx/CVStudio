@@ -76,8 +76,8 @@ export async function exportToPdf(
     element.scrollIntoView({ block: 'start', behavior: 'instant' });
     await new Promise(resolve => setTimeout(resolve, 150));
 
-    // Scale 2: keeps file size down (target ≤2MB) and matches PDF size so font size is correct
-    const scale = 2;
+    // Scale 1: minimum pixels for PDF ≤2MB; text remains readable
+    const scale = 1;
 
     element.classList.add('pdf-export-active');
     const container = element.closest('.resume-container') || element;
@@ -109,6 +109,8 @@ export async function exportToPdf(
       element.clientHeight
     );
     
+    // Cap capture size so PDF stays under 2MB (use content width, not scrollWidth)
+    const captureWidth = Math.min(element.scrollWidth, contentWidthPx);
     const canvas = await html2canvas(element, {
       scale,
       useCORS: true,
@@ -116,9 +118,9 @@ export async function exportToPdf(
       backgroundColor: '#ffffff',
       logging: false,
       imageTimeout: 0,
-      width: element.scrollWidth,
-      height: fullHeight, // Use full height to capture all pages
-      windowWidth: element.scrollWidth,
+      width: captureWidth,
+      height: fullHeight,
+      windowWidth: captureWidth,
       windowHeight: fullHeight,
       scrollX: 0,
       scrollY: 0,
@@ -173,8 +175,8 @@ export async function exportToPdf(
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const pageContentHeight = pdfHeight - (marginPoints * 2);
 
-    // JPEG quality 0.72 for ≤2MB target; full-width capture keeps text sharp
-    const jpegQuality = 0.72;
+    // Start at 0.52 so output stays ≤2MB; retry lower if needed
+    const jpegQuality = 0.52;
     const imgData = canvas.toDataURL('image/jpeg', jpegQuality);
     const imgBytes = await fetch(imgData).then(res => res.arrayBuffer());
     const jpegImage = await pdfDoc.embedJpg(imgBytes);
@@ -250,7 +252,7 @@ export async function exportToPdf(
     
     if (pdfBytes.length > maxSizeBytes) {
       console.log(`PDF size ${(pdfBytes.length / 1024 / 1024).toFixed(2)}MB exceeds 2MB, reducing quality...`);
-      const lowerQualities = [0.62, 0.52];
+      const lowerQualities = [0.45, 0.38, 0.32, 0.28];
       for (const q of lowerQualities) {
         const pdfDoc2 = await PDFDocument.create();
         const jpegImage2 = await pdfDoc2.embedJpg(await fetch(canvas.toDataURL('image/jpeg', q)).then(r => r.arrayBuffer()));
