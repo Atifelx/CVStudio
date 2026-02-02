@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, RGB } from 'pdf-lib';
 import { ResumeData } from '@/types/resume';
-import { LayoutSettings, PAGE_DIMENSIONS, MARGIN_VALUES, COLOR_THEMES } from '@/types/layout';
+import { LayoutSettings, getPageDimensions, MARGIN_VALUES, COLOR_THEMES } from '@/types/layout';
 
 /**
  * ATS-Friendly PDF Export using pdf-lib
@@ -167,9 +167,16 @@ export async function exportToPdfAts(
     const pageDim = getPageDimensions(settings);
     const marginMm = settings.margin ? MARGIN_VALUES[settings.margin].value : DEFAULT_MARGIN_MM;
 
-    // Create PDF document
     const pdfDoc = await PDFDocument.create();
-    
+
+    // ATS-friendly metadata (title, author help parsing and search)
+    const docTitle = sanitizeText(header.name) ? `Resume - ${sanitizeText(header.name)}` : 'Resume';
+    pdfDoc.setTitle(docTitle);
+    pdfDoc.setAuthor(sanitizeText(header.name) || 'Applicant');
+    pdfDoc.setSubject('Resume');
+    pdfDoc.setCreator('CV Studio');
+    pdfDoc.setProducer('CV Studio');
+
     // Embed fonts
     const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);

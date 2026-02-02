@@ -26,7 +26,7 @@ import {
 import { useResume } from '@/context/ResumeContext';
 import { useLayout } from '@/context/LayoutContext';
 import { exportToDocx } from '@/utils/exportDocx';
-import { exportToPdf, printToPdf } from '@/utils/exportPdf';
+import { printToPdf } from '@/utils/exportPdf';
 import { exportToPdfAts } from '@/utils/exportPdfAts';
 import SampleResumeDialog from '@/components/SampleResumeDialog';
 import {
@@ -86,7 +86,8 @@ export default function Toolbar() {
   const handleExportPdf = async () => {
     setIsExportingPdf(true);
     try {
-      await exportToPdf('resume-content', `${baseName}_Resume.pdf`, settings);
+      // 100% ATS-friendly: text-based PDF (no images), with metadata
+      await exportToPdfAts(resumeData, `${baseName}_Resume.pdf`, settings);
     } catch (error) {
       console.error('PDF export error:', error);
       alert('Failed to export PDF.');
@@ -268,7 +269,7 @@ export default function Toolbar() {
             <button
               onClick={handleExportPdf}
               disabled={isExportingPdf}
-              title="High-quality PDF (no dialog) · Sharp, print-ready"
+              title="ATS-friendly PDF · Text-based, parseable by job systems"
               className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 text-xs font-medium"
             >
               {isExportingPdf ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
