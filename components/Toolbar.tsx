@@ -26,7 +26,7 @@ import {
 import { useResume } from '@/context/ResumeContext';
 import { useLayout } from '@/context/LayoutContext';
 import { exportToDocx } from '@/utils/exportDocx';
-import { printToPdf } from '@/utils/exportPdf';
+import { exportToPdf, printToPdf } from '@/utils/exportPdf';
 import { exportToPdfAts } from '@/utils/exportPdfAts';
 import SampleResumeDialog from '@/components/SampleResumeDialog';
 import {
@@ -86,8 +86,7 @@ export default function Toolbar() {
   const handleExportPdf = async () => {
     setIsExportingPdf(true);
     try {
-      // 100% ATS-friendly: text-based PDF (no images), with metadata
-      await exportToPdfAts(resumeData, `${baseName}_Resume.pdf`, settings);
+      await exportToPdf('resume-content', `${baseName}_Resume.pdf`, settings);
     } catch (error) {
       console.error('PDF export error:', error);
       alert('Failed to export PDF.');

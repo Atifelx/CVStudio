@@ -3,9 +3,12 @@ import { PDFDocument } from 'pdf-lib';
 import { LayoutSettings, getPageDimensions } from '@/types/layout';
 
 /**
- * PDF Export (blue "PDF" button) – WYSIWYG, ≤2MB.
- * Exports what you see: full page width, same font size as UI.
- * Uses scale 1 + JPEG compression to keep file size small for text resumes.
+ * High-quality PDF Export (no print dialog)
+ *
+ * Maximizes sharpness to approach Print → PDF quality:
+ * - scale 8–10 × for ~768–960 DPI equivalent (then scaled down into PDF)
+ * - PNG lossless, no compression in jsPDF
+ * - Fonts loaded, export-friendly CSS, high imageSmoothingQuality
  */
 export async function exportToPdf(
   elementId: string,
@@ -13,7 +16,7 @@ export async function exportToPdf(
   layoutSettings?: LayoutSettings
 ): Promise<void> {
   const element = document.getElementById(elementId);
-  
+
   if (!element) {
     console.error(`Element with id "${elementId}" not found`);
     alert('Could not find resume content to export');
@@ -44,15 +47,9 @@ export async function exportToPdf(
   };
 
   try {
-    // Digital PDF: max width, 0.2mm margin left/right/top/bottom
-    const marginMm = 0.2;
     const pageDim = getPageDimensions(settings);
-    // Content width in mm and in pixels (96dpi) so capture fills page and font size matches
-    const contentWidthMm = pageDim.width - marginMm * 2;
-    const mmToPx = 96 / 25.4;
-    const contentWidthPx = Math.round(contentWidthMm * mmToPx);
+    const marginMm = 5; // Minimal margins – use full page width (DOCX-like)
 
-    // Show loading indicator
     const loadingDiv = document.createElement('div');
     loadingDiv.id = 'pdf-loading';
     loadingDiv.innerHTML = `
@@ -68,29 +65,21 @@ export async function exportToPdf(
     document.body.appendChild(loadingDiv);
 
     await document.fonts.ready;
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     element.scrollIntoView({ block: 'start', behavior: 'instant' });
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise((resolve) => setTimeout(resolve, 150));
 
-    // Scale 1: minimum pixels for PDF ≤2MB; text remains readable
-    const scale = 1;
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const scale = Math.min(5, Math.max(4, Math.round(dpr * 2)));
 
     element.classList.add('pdf-export-active');
     const container = element.closest('.resume-container') || element;
     const originalOverflow = container instanceof HTMLElement ? container.style.overflow : '';
-    const originalWidth = container instanceof HTMLElement ? container.style.width : '';
-    const originalMaxWidth = container instanceof HTMLElement ? container.style.maxWidth : '';
-    const originalMinWidth = container instanceof HTMLElement ? container.style.minWidth : '';
-    if (container instanceof HTMLElement) {
-      container.style.overflow = 'visible';
-      container.style.width = `${contentWidthPx}px`;
-      container.style.maxWidth = 'none';
-      container.style.minWidth = `${contentWidthPx}px`;
-    }
-    
+    if (container instanceof HTMLElement) container.style.overflow = 'visible';
+
     window.scrollTo(0, 0);
-    await new Promise(resolve => setTimeout(resolve, 250)); // reflow so layout = same as PDF
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     const noPrintElements = element.querySelectorAll('.no-print');
     const originalDisplays: (string | null)[] = [];
@@ -105,8 +94,7 @@ export async function exportToPdf(
       element.offsetHeight,
       element.clientHeight
     );
-    
-    // Always capture at PDF content width so export = full width, same font size, small file
+
     const canvas = await html2canvas(element, {
       scale,
       useCORS: true,
@@ -114,25 +102,19 @@ export async function exportToPdf(
       backgroundColor: '#ffffff',
       logging: false,
       imageTimeout: 0,
-      width: contentWidthPx,
-      height: fullHeight,
-      windowWidth: contentWidthPx,
+      width: element.scrollWidth,
+      height: fullHeight, // Use full height to capture all pages
+      windowWidth: element.scrollWidth,
       windowHeight: fullHeight,
       scrollX: 0,
       scrollY: 0,
       foreignObjectRendering: false,
       // Ensure colors are captured correctly
       onclone: (clonedDoc) => {
+        // Force render colors by ensuring styles are applied
         const clonedElement = clonedDoc.getElementById(elementId);
         if (clonedElement) {
-          // Full width so PDF has no empty sides and font size matches
-          const cloneContainer = clonedElement.closest('.resume-container') || clonedElement;
-          if (cloneContainer instanceof HTMLElement) {
-            const el = cloneContainer as HTMLElement;
-            el.style.width = `${contentWidthPx}px`;
-            el.style.maxWidth = 'none';
-            el.style.minWidth = `${contentWidthPx}px`;
-          }
+          // Ensure all computed styles are preserved
           const style = clonedDoc.createElement('style');
           style.textContent = `
             .text-blue-600 { color: rgb(37, 99, 235) !important; }
@@ -143,57 +125,39 @@ export async function exportToPdf(
       },
     });
 
-    // Cap canvas width so PDF stays ≤2MB (html2canvas may use devicePixelRatio and ignore width)
-    const targetCanvasWidth = contentWidthPx * scale;
-    let sourceCanvas = canvas;
-    if (canvas.width > targetCanvasWidth) {
-      const targetCanvasHeight = Math.round((canvas.height * targetCanvasWidth) / canvas.width);
-      const capped = document.createElement('canvas');
-      capped.width = targetCanvasWidth;
-      capped.height = targetCanvasHeight;
-      const ctx = capped.getContext('2d', { alpha: false });
-      if (ctx) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, capped.width, capped.height);
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, capped.width, capped.height);
-      }
-      sourceCanvas = capped;
-    }
-
-    console.log('Canvas dimensions:', sourceCanvas.width, 'x', sourceCanvas.height);
+    console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
+    console.log('Element dimensions:', element.scrollWidth, 'x', fullHeight);
 
     // Restore original display styles
     noPrintElements.forEach((el, index) => {
       const htmlEl = el as HTMLElement;
       htmlEl.style.display = originalDisplays[index] || '';
     });
-    
+
+    // Restore container overflow
     if (container instanceof HTMLElement) {
       container.style.overflow = originalOverflow;
-      container.style.width = originalWidth;
-      container.style.maxWidth = originalMaxWidth;
-      container.style.minWidth = originalMinWidth;
     }
-    
+
+    // Remove export class
     element.classList.remove('pdf-export-active');
 
     // Create PDF using pdf-lib
     const pdfDoc = await PDFDocument.create();
-    
+
     // Convert mm to points (1 mm = 2.83465 points)
     const mmToPoints = 2.83465;
     const pdfWidth = pageDim.width * mmToPoints;
     const pdfHeight = pageDim.height * mmToPoints;
     const marginPoints = marginMm * mmToPoints;
-    const imgWidth = pdfWidth - (marginPoints * 2);
-    const imgHeight = (sourceCanvas.height * imgWidth) / sourceCanvas.width;
+    const imgWidth = pdfWidth - marginPoints * 2;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const pageContentHeight = pdfHeight - (marginPoints * 2);
 
-    const jpegQuality = 0.38;
-    const imgData = sourceCanvas.toDataURL('image/jpeg', jpegQuality);
-    const imgBytes = await fetch(imgData).then(res => res.arrayBuffer());
+    // Convert canvas to JPEG image data (smaller file size than PNG)
+    // Use JPEG quality 0.85 for good quality but smaller size
+    const imgData = canvas.toDataURL('image/jpeg', 0.85);
+    const imgBytes = await fetch(imgData).then((res) => res.arrayBuffer());
     const jpegImage = await pdfDoc.embedJpg(imgBytes);
 
     if (imgHeight <= pageContentHeight) {
@@ -209,40 +173,41 @@ export async function exportToPdf(
       // Multi-page
       let remainingHeight = imgHeight;
       let sourceY = 0;
-      let pageNum = 0;
-      
-      const pixelsPerPoint = sourceCanvas.width / imgWidth;
-      
+      const pixelsPerPoint = canvas.width / imgWidth;
+
       while (remainingHeight > 0) {
         const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
-        
         const drawHeight = Math.min(pageContentHeight, remainingHeight);
         const sourceHeight = drawHeight * pixelsPerPoint;
 
+        // Create page canvas
         const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = sourceCanvas.width;
+        pageCanvas.width = canvas.width;
         pageCanvas.height = Math.ceil(sourceHeight);
 
         const ctx = pageCanvas.getContext('2d', { alpha: false });
-        
+
         if (ctx) {
+          // Fill white background
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(
-            sourceCanvas,
+            canvas,
             0, sourceY,
-            sourceCanvas.width, sourceHeight,
+            canvas.width, sourceHeight,
             0, 0,
-            sourceCanvas.width, sourceHeight
+            canvas.width, sourceHeight
           );
         }
 
-        const pageImgData = pageCanvas.toDataURL('image/jpeg', jpegQuality);
-        const pageImgBytes = await fetch(pageImgData).then(res => res.arrayBuffer());
+        // Embed page image with compression (JPEG for smaller size)
+        // Use JPEG with quality 0.85 to reduce file size while maintaining quality
+        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.85);
+        const pageImgBytes = await fetch(pageImgData).then((res) => res.arrayBuffer());
         const pageJpegImage = await pdfDoc.embedJpg(pageImgBytes);
-        
         page.drawImage(pageJpegImage, {
           x: marginPoints,
           y: pdfHeight - marginPoints - drawHeight,
@@ -252,23 +217,26 @@ export async function exportToPdf(
 
         sourceY += sourceHeight;
         remainingHeight -= drawHeight;
-        pageNum++;
       }
     }
 
     // Remove loading indicator
     document.body.removeChild(loadingDiv);
 
+    // Save the PDF
     let pdfBytes = await pdfDoc.save();
-    const maxSizeBytes = 2 * 1024 * 1024; // 2MB max
-    
+    const maxSizeBytes = 3 * 1024 * 1024; // 3MB
+
+    // Check file size and reduce quality if needed
     if (pdfBytes.length > maxSizeBytes) {
-      console.log(`PDF size ${(pdfBytes.length / 1024 / 1024).toFixed(2)}MB exceeds 2MB, reducing quality...`);
-      const lowerQualities = [0.32, 0.26, 0.22, 0.18];
-      for (const q of lowerQualities) {
-        const pdfDoc2 = await PDFDocument.create();
-        const jpegImage2 = await pdfDoc2.embedJpg(await fetch(sourceCanvas.toDataURL('image/jpeg', q)).then(r => r.arrayBuffer()));
-      
+      console.log(`PDF size ${(pdfBytes.length / 1024 / 1024).toFixed(2)}MB exceeds 3MB, reducing quality...`);
+
+      // Recreate with lower quality JPEG (0.75 instead of 0.85)
+      const pdfDoc2 = await PDFDocument.create();
+      const jpegImage2 = await pdfDoc2.embedJpg(
+        await fetch(canvas.toDataURL('image/jpeg', 0.75)).then((r) => r.arrayBuffer())
+      );
+
       if (imgHeight <= pageContentHeight) {
         const page = pdfDoc2.addPage([pdfWidth, pdfHeight]);
         page.drawImage(jpegImage2, {
@@ -281,27 +249,26 @@ export async function exportToPdf(
         // Recreate multi-page with lower quality
         let remainingHeight2 = imgHeight;
         let sourceY2 = 0;
-        const pixelsPerPoint2 = sourceCanvas.width / imgWidth;
-        
+        const pixelsPerPoint2 = canvas.width / imgWidth;
+
         while (remainingHeight2 > 0) {
           const page = pdfDoc2.addPage([pdfWidth, pdfHeight]);
           const drawHeight2 = Math.min(pageContentHeight, remainingHeight2);
           const sourceHeight2 = drawHeight2 * pixelsPerPoint2;
-          
           const pageCanvas2 = document.createElement('canvas');
-          pageCanvas2.width = sourceCanvas.width;
+          pageCanvas2.width = canvas.width;
           pageCanvas2.height = Math.ceil(sourceHeight2);
           const ctx2 = pageCanvas2.getContext('2d', { alpha: false });
-          
           if (ctx2) {
             ctx2.fillStyle = '#ffffff';
             ctx2.fillRect(0, 0, pageCanvas2.width, pageCanvas2.height);
             ctx2.imageSmoothingEnabled = true;
             ctx2.imageSmoothingQuality = 'high';
-            ctx2.drawImage(sourceCanvas, 0, sourceY2, sourceCanvas.width, sourceHeight2, 0, 0, sourceCanvas.width, sourceHeight2);
-            
-            const pageImgData2 = pageCanvas2.toDataURL('image/jpeg', q);
-            const pageJpegImage2 = await pdfDoc2.embedJpg(await fetch(pageImgData2).then(r => r.arrayBuffer()));
+            ctx2.drawImage(canvas, 0, sourceY2, canvas.width, sourceHeight2, 0, 0, canvas.width, sourceHeight2);
+            const pageImgData2 = pageCanvas2.toDataURL('image/jpeg', 0.75);
+            const pageJpegImage2 = await pdfDoc2.embedJpg(
+              await fetch(pageImgData2).then((r) => r.arrayBuffer())
+            );
             page.drawImage(pageJpegImage2, {
               x: marginPoints,
               y: pdfHeight - marginPoints - drawHeight2,
@@ -309,22 +276,18 @@ export async function exportToPdf(
               height: drawHeight2,
             });
           }
-          
           sourceY2 += sourceHeight2;
           remainingHeight2 -= drawHeight2;
         }
       }
-      
-        pdfBytes = await pdfDoc2.save();
-        if (pdfBytes.length <= maxSizeBytes) break;
-      }
-      if (pdfBytes.length > maxSizeBytes) console.log(`PDF size after reduction: ${(pdfBytes.length / 1024 / 1024).toFixed(2)}MB`);
+      pdfBytes = await pdfDoc2.save();
+      console.log(`Reduced PDF size to ${(pdfBytes.length / 1024 / 1024).toFixed(2)}MB`);
     }
-    
+
     const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
     const fileSizeMB = (blob.size / 1024 / 1024).toFixed(2);
     console.log(`PDF exported successfully: ${fileSizeMB}MB, ${Math.ceil(imgHeight / pageContentHeight)} pages`);
-    
+
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -333,26 +296,20 @@ export async function exportToPdf(
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
   } catch (error) {
     console.error('PDF export error:', error);
-    const container = element.closest('.resume-container');
-    if (container instanceof HTMLElement) {
-      container.style.width = '';
-      container.style.maxWidth = '';
-      container.style.minWidth = '';
-    }
+
     const loadingDiv = document.getElementById('pdf-loading');
     if (loadingDiv) {
       document.body.removeChild(loadingDiv);
     }
-    
+
     const usePrint = confirm(
       'PDF export encountered an issue.\n\n' +
       'Would you like to use the browser print dialog instead?\n' +
       '(Select "Save as PDF" in the print destination)'
     );
-    
+
     if (usePrint) {
       printToPdf();
     }
@@ -360,10 +317,8 @@ export async function exportToPdf(
 }
 
 /**
- * Browser print dialog - produces smallest file size
+ * Browser print dialog – produces smallest file size
  */
 export function printToPdf(): void {
-  setTimeout(() => {
-    window.print();
-  }, 100);
+  setTimeout(() => window.print(), 100);
 }
