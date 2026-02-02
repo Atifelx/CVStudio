@@ -3,17 +3,20 @@
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useResume } from '@/context/ResumeContext';
+import { useLayout } from '@/context/LayoutContext';
 import ResumeSection from '@/components/ResumeSection';
 import EditSection, { InputField, TextAreaField } from '@/components/EditSection';
 import { SkillCategory } from '@/types/resume';
 
 /**
  * Technical Skills section component
- * Handles empty state with add prompt
+ * Supports both modern (blue) and classic (B&W) templates
  */
 export default function SkillsSection() {
   const { resumeData, setResumeData, editingSection, setEditingSection } = useResume();
+  const { settings } = useLayout();
   const { skills, sectionVisibility } = resumeData;
+  const isClassic = settings.template === 'classic';
   
   const [editData, setEditData] = useState<SkillCategory[]>(skills);
   const isEditing = editingSection === 'skills';
@@ -203,7 +206,7 @@ export default function SkillsSection() {
   return (
     <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection 
-        title="TECHNICAL SKILLS" 
+        title={isClassic ? "Skills" : "TECHNICAL SKILLS"} 
         onEdit={handleEdit}
         isEditing={isEditing}
       >
@@ -214,6 +217,7 @@ export default function SkillsSection() {
               skill={skill}
               index={index}
               isLast={index === skills.length - 1}
+              isClassic={isClassic}
             />
           ))}
         </div>
@@ -224,21 +228,39 @@ export default function SkillsSection() {
 
 /**
  * Individual skill category component with page break prevention
+ * Supports both modern and classic templates
  */
 function SkillCategoryEntry({ 
   skill, 
   index, 
-  isLast 
+  isLast,
+  isClassic 
 }: { 
   skill: SkillCategory; 
   index: number; 
   isLast: boolean;
+  isClassic: boolean;
 }) {
   const baseStyle = { 
     marginBottom: !isLast ? 'var(--resume-bullet-gap)' : 0,
     fontSize: 'var(--resume-font-size)',
     lineHeight: 'var(--resume-line-height)'
   };
+  
+  // Classic template: horizontal layout with dashes between skills
+  if (isClassic) {
+    const skillList = skill.skills.split('|').map(s => s.trim()).filter(Boolean);
+    return (
+      <div 
+        className="skill-category"
+        style={baseStyle}
+      >
+        <span className="font-semibold text-gray-900">{skill.category}</span>
+        <span className="text-gray-500 mx-2">—</span>
+        <span className="text-gray-700">{skillList.join(' — ')}</span>
+      </div>
+    );
+  }
   
   return (
     <div 

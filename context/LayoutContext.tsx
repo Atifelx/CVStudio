@@ -15,6 +15,7 @@ import {
   TargetPages,
   VerticalSpacing,
   FontFamily,
+  TemplateType,
   PAGE_DIMENSIONS,
   MARGIN_VALUES,
 } from '@/types/layout';
@@ -41,6 +42,7 @@ interface LayoutContextType {
   setContentWidth: (width: ContentWidth) => void;
   setVerticalSpacing: (spacing: Partial<VerticalSpacing>) => void;
   setTargetPages: (pages: TargetPages) => void;
+  setTemplate: (template: TemplateType) => void;
   
   // Presets
   resetToDefaults: () => void;
@@ -118,6 +120,10 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
 
   const setTargetPages = useCallback((targetPages: TargetPages) => {
     setSettings((prev) => ({ ...prev, targetPages }));
+  }, []);
+
+  const setTemplate = useCallback((template: TemplateType) => {
+    setSettings((prev) => ({ ...prev, template }));
   }, []);
 
   // Presets
@@ -307,6 +313,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         setContentWidth,
         setVerticalSpacing,
         setTargetPages,
+        setTemplate,
         resetToDefaults,
         applyCompactPreset,
         applyUltraCompactPreset,

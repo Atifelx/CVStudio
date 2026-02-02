@@ -3,17 +3,19 @@
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useResume } from '@/context/ResumeContext';
+import { useLayout } from '@/context/LayoutContext';
 import ResumeSection from '@/components/ResumeSection';
 import { TextAreaField } from '@/components/EditSection';
 
 /**
  * Professional Summary section component
- * 
- * This section is OPTIONAL - users can delete/restore it
+ * Supports both modern (blue) and classic (B&W) templates
  */
 export default function SummarySection() {
   const { resumeData, setResumeData, editingSection, setEditingSection } = useResume();
+  const { settings } = useLayout();
   const { summary, sectionVisibility } = resumeData;
+  const isClassic = settings.template === 'classic';
   
   const [editData, setEditData] = useState(summary);
   const isEditing = editingSection === 'summary';
@@ -123,7 +125,7 @@ export default function SummarySection() {
   return (
     <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection 
-        title="PROFESSIONAL SUMMARY" 
+        title={isClassic ? "Summary" : "PROFESSIONAL SUMMARY"} 
         onEdit={handleEdit}
         isEditing={isEditing}
       >

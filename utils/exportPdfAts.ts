@@ -187,9 +187,16 @@ export async function exportToPdfAts(
     const nameSize = Math.round(baseFontSize * 1.8);
     const lineHeight = baseFontSize * 1.4;
     
+    // Template-specific settings
+    const isClassic = settings.template === 'classic';
+    
     // Colors
     const blueColor = rgb(37/255, 99/255, 235/255);
     const blackColor = rgb(0, 0, 0);
+    const grayColor = rgb(80/255, 80/255, 80/255);
+    
+    // Use black for classic template, blue for modern
+    const accentColor = isClassic ? blackColor : blueColor;
 
     // Track current page and Y position
     let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -265,26 +272,36 @@ export async function exportToPdfAts(
 
     // --- Header ---
     if (header.name) {
-      addText(header.name, { fontSize: nameSize, bold: true, color: blueColor, align: 'center' });
+      addText(header.name, { fontSize: nameSize, bold: true, color: accentColor, align: 'center' });
       addSpace(3);
     }
     
     if (header.title) {
-      addText(header.title, { fontSize: Math.round(baseFontSize * 1.1), align: 'center' });
+      addText(header.title, { fontSize: Math.round(baseFontSize * 1.1), color: isClassic ? grayColor : blackColor, align: 'center' });
       addSpace(5);
     }
     
-    // Contact information on separate lines, grouped logically
+    // Contact information - classic uses diamond separators
+    const separator = isClassic ? ' * ' : ' | ';
+    
     if (header.contact.email || header.contact.phone || header.contact.linkedin || header.contact.github) {
-      const contactLine1 = [header.contact.email, header.contact.phone].filter(Boolean).join(' | ');
-      const contactLine2 = [header.contact.linkedin, header.contact.github].filter(Boolean).join(' | ');
+      const contactLine1 = [header.contact.email, header.contact.phone].filter(Boolean).join(separator);
+      const contactLine2 = [header.contact.linkedin, header.contact.github].filter(Boolean).join(separator);
       
-      if (contactLine1) addText(contactLine1, { align: 'center' });
-      if (contactLine2) addText(contactLine2, { align: 'center' });
+      // Classic template: combine all contact on one line if fits
+      if (isClassic) {
+        const allContacts = [header.contact.email, header.contact.phone, header.contact.location].filter(Boolean).join(separator);
+        if (allContacts) addText(allContacts, { align: 'center' });
+        const links = [header.contact.linkedin, header.contact.github].filter(Boolean).join(separator);
+        if (links) addText(links, { align: 'center' });
+      } else {
+        if (contactLine1) addText(contactLine1, { align: 'center' });
+        if (contactLine2) addText(contactLine2, { align: 'center' });
+      }
     }
     
-    // Location and work authorization on one line
-    if (header.contact.location) {
+    // Location and work authorization on one line (modern only - classic includes in contact)
+    if (!isClassic && header.contact.location) {
       const locationParts = [header.contact.location, header.contact.workAuthorization].filter(Boolean);
       if (locationParts.length > 0) {
         addText(`Location: ${locationParts.join(' | ')}`, { align: 'center' });
@@ -295,35 +312,50 @@ export async function exportToPdfAts(
     if (header.contact.relocation || header.contact.travel) {
       const relocationParts = [header.contact.relocation, header.contact.travel].filter(Boolean);
       if (relocationParts.length > 0) {
-        addText(`Relocation: ${relocationParts.join(' | ')}`, { align: 'center' });
+        addText(`${isClassic ? 'Open to: ' : 'Relocation: '}${relocationParts.join(separator)}`, { align: 'center' });
       }
     }
     
     addSpace(15);
 
+    // Helper to add section heading (centered for classic, left for modern)
+    const addSectionHeading = (title: string): void => {
+      if (isClassic) {
+        // Classic template: centered title (uppercase with tracking)
+        addText(title.toUpperCase(), { fontSize: headingSize, bold: true, color: accentColor, align: 'center' });
+      } else {
+        // Modern template: left-aligned blue title
+        addText(title.toUpperCase(), { fontSize: headingSize, bold: true, color: accentColor });
+      }
+      addSpace(5);
+    };
+
     // --- Professional Summary ---
     if (sectionVisibility?.summary !== false && summary) {
-      addText('PROFESSIONAL SUMMARY', { fontSize: headingSize, bold: true, color: blueColor });
-      addSpace(5);
+      addSectionHeading(isClassic ? 'Summary' : 'Professional Summary');
       addText(summary);
       addSpace(15);
     }
 
     // --- Technical Skills ---
     if (sectionVisibility?.skills !== false && skills.length > 0) {
-      addText('TECHNICAL SKILLS', { fontSize: headingSize, bold: true, color: blueColor });
-      addSpace(5);
+      addSectionHeading(isClassic ? 'Skills' : 'Technical Skills');
       skills.forEach((s) => {
-        // Use isSkills flag for special wrapping that respects | separators
-        addText(`${s.category}: ${s.skills}`, { isSkills: true });
+        if (isClassic) {
+          // Classic: Category — Skill1 — Skill2
+          const skillList = s.skills.split('|').map(sk => sk.trim()).filter(Boolean).join(' - ');
+          addText(`${s.category} - ${skillList}`, { isSkills: true });
+        } else {
+          // Modern: Category: Skill1 | Skill2
+          addText(`${s.category}: ${s.skills}`, { isSkills: true });
+        }
       });
       addSpace(15);
     }
 
     // --- Professional Experience ---
     if (experience.length > 0) {
-      addText('PROFESSIONAL EXPERIENCE', { fontSize: headingSize, bold: true, color: blueColor });
-      addSpace(5);
+      addSectionHeading(isClassic ? 'Experience' : 'Professional Experience');
 
       experience.forEach((exp, idx) => {
         if (idx > 0) addSpace(10);
@@ -332,7 +364,9 @@ export async function exportToPdfAts(
           addText(exp.role, { bold: true, fontSize: Math.round(baseFontSize * 1.05) });
         }
         
-        const companyLine = [exp.company, exp.period].filter(Boolean).join(' | ');
+        // Classic: Company — Date on same line
+        // Modern: Company | Date
+        const companyLine = [exp.company, exp.period].filter(Boolean).join(isClassic ? ' - ' : ' | ');
         if (companyLine) addText(companyLine);
         
         if (exp.clientNote) addText(exp.clientNote);
@@ -355,11 +389,10 @@ export async function exportToPdfAts(
 
     // --- Education ---
     if (sectionVisibility?.education !== false && education.length > 0) {
-      addText('EDUCATION', { fontSize: headingSize, bold: true, color: blueColor });
-      addSpace(5);
+      addSectionHeading('Education');
       education.forEach((edu) => {
         if (edu.degree) addText(edu.degree, { bold: true });
-        const institutionLine = [edu.institution, edu.location].filter(Boolean).join(' | ');
+        const institutionLine = [edu.institution, edu.location].filter(Boolean).join(isClassic ? ' - ' : ' | ');
         if (institutionLine) addText(institutionLine);
       });
       addSpace(15);
@@ -367,8 +400,7 @@ export async function exportToPdfAts(
 
     // --- General Sections ---
     if (sectionVisibility?.expertise && generalSections.length > 0) {
-      addText('ADDITIONAL INFORMATION', { fontSize: headingSize, bold: true, color: blueColor });
-      addSpace(5);
+      addSectionHeading(isClassic ? 'Additional' : 'Additional Information');
       generalSections.forEach((section) => {
         if (section.title.trim()) {
           addText(section.title, { bold: true, fontSize: Math.round(baseFontSize * 1.05) });

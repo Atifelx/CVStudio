@@ -1,5 +1,13 @@
 // TypeScript types for layout and typography settings
 
+// Resume template types
+export type TemplateType = 'modern' | 'classic';
+
+export const TEMPLATE_OPTIONS: Array<{ value: TemplateType; label: string; description: string }> = [
+  { value: 'modern', label: 'Modern Blue', description: 'Blue header with gradient, modern styling' },
+  { value: 'classic', label: 'Classic B&W', description: 'Traditional black & white, ATS-optimized' },
+];
+
 export type PageSize = 'a4' | 'letter';
 
 export const PAGE_DIMENSIONS: Record<PageSize, { width: number; height: number; name: string }> = {
@@ -111,6 +119,7 @@ export interface LayoutSettings {
   contentWidth: ContentWidth;
   verticalSpacing: VerticalSpacing;
   targetPages: TargetPages;
+  template: TemplateType;
 }
 
 // DEFAULT: Standard resume formatting (11pt like MS Word)
@@ -125,6 +134,7 @@ export const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = {
   contentWidth: 100,
   verticalSpacing: DEFAULT_VERTICAL_SPACING,
   targetPages: null,
+  template: 'modern',
 };
 
 // COMPACT: Smaller text for fitting more content
@@ -138,6 +148,7 @@ export const COMPACT_LAYOUT_SETTINGS: LayoutSettings = {
   contentWidth: 100,
   verticalSpacing: COMPACT_VERTICAL_SPACING,
   targetPages: null,
+  template: 'modern',
 };
 
 // ULTRA COMPACT: Maximum density (9pt minimum readable)
@@ -151,6 +162,7 @@ export const ULTRA_COMPACT_SETTINGS: LayoutSettings = {
   contentWidth: 100,
   verticalSpacing: ULTRA_COMPACT_SPACING,
   targetPages: 1,
+  template: 'modern',
 };
 
 // BALANCED: Professional look (11pt standard)
@@ -164,4 +176,5 @@ export const BALANCED_LAYOUT_SETTINGS: LayoutSettings = {
   contentWidth: 100,
   verticalSpacing: BALANCED_VERTICAL_SPACING,
   targetPages: null,
+  template: 'modern',
 };

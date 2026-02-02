@@ -40,6 +40,7 @@ export async function exportToPdf(
       headerPadding: 24,
     },
     targetPages: null,
+    template: 'modern',
   };
 
   try {

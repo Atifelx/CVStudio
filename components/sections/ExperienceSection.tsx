@@ -3,17 +3,20 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
 import { useResume } from '@/context/ResumeContext';
+import { useLayout } from '@/context/LayoutContext';
 import ResumeSection from '@/components/ResumeSection';
 import EditSection, { InputField, TextAreaField } from '@/components/EditSection';
 import { ExperienceItem } from '@/types/resume';
 
 /**
  * Professional Experience section component
- * Handles empty state with add prompt
+ * Supports both modern (blue) and classic (B&W) templates
  */
 export default function ExperienceSection() {
   const { resumeData, setResumeData, editingSection, setEditingSection, editingItemId, setEditingItemId } = useResume();
+  const { settings } = useLayout();
   const { experience } = resumeData;
+  const isClassic = settings.template === 'classic';
   
   const [editData, setEditData] = useState<ExperienceItem[]>(experience);
   const isEditing = editingSection === 'experience';
@@ -308,13 +311,14 @@ export default function ExperienceSection() {
   // Normal view
   return (
     <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
-      <ResumeSection title="PROFESSIONAL EXPERIENCE" onEdit={handleEdit} isEditing={isEditing}>
+      <ResumeSection title={isClassic ? "Experience" : "PROFESSIONAL EXPERIENCE"} onEdit={handleEdit} isEditing={isEditing}>
         {experience.map((exp, index) => (
           <ExperienceEntry
             key={exp.id}
             exp={exp}
             index={index}
             isLast={index === experience.length - 1}
+            isClassic={isClassic}
           />
         ))}
       </ResumeSection>
@@ -324,18 +328,81 @@ export default function ExperienceSection() {
 
 /**
  * Individual experience entry component with page break prevention
+ * Supports both modern and classic templates
  */
 function ExperienceEntry({ 
   exp, 
   index, 
-  isLast 
+  isLast,
+  isClassic 
 }: { 
   exp: ExperienceItem; 
   index: number; 
   isLast: boolean;
+  isClassic: boolean;
 }) {
   const baseStyle = { marginBottom: !isLast ? 'var(--resume-experience-gap)' : 0 };
   
+  // Classic template layout: Role on first line, Company — Location — Date on second line
+  if (isClassic) {
+    return (
+      <div className="experience-entry" style={baseStyle}>
+        {/* Role - bold, first line */}
+        <h4 className="font-bold text-gray-900" style={{ fontSize: 'calc(var(--resume-font-size) * 1.05)' }}>
+          {exp.role}
+        </h4>
+        
+        {/* Company — Date on second line */}
+        <div 
+          className="text-gray-700" 
+          style={{ 
+            fontSize: 'var(--resume-font-size)', 
+            marginBottom: 'var(--resume-bullet-gap)' 
+          }}
+        >
+          {exp.company}
+          {exp.period && (
+            <span className="text-gray-500"> — {exp.period}</span>
+          )}
+        </div>
+
+        {exp.clientNote && (
+          <p className="text-gray-600 italic" style={{ fontSize: 'calc(var(--resume-font-size) * 0.9)', marginBottom: 'var(--resume-bullet-gap)' }}>
+            {exp.clientNote}
+          </p>
+        )}
+
+        {exp.description && (
+          <p className="text-gray-700" style={{ fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)', marginBottom: 'var(--resume-paragraph-gap)' }}>
+            {exp.description}
+          </p>
+        )}
+
+        {exp.bullets.length > 0 && (
+          <ul className="list-disc ml-5 text-gray-700" style={{ fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)' }}>
+            {exp.bullets.map((bullet, idx) => (
+              <li key={idx} style={{ marginBottom: 'var(--resume-bullet-gap)' }} dangerouslySetInnerHTML={{ __html: formatBullet(bullet) }} />
+            ))}
+          </ul>
+        )}
+
+        {exp.achievements && exp.achievements.length > 0 && (
+          <div style={{ marginTop: 'var(--resume-paragraph-gap)' }}>
+            <p className="font-semibold text-gray-800" style={{ fontSize: 'var(--resume-font-size)', marginBottom: 'var(--resume-bullet-gap)' }}>
+              Key Achievements:
+            </p>
+            <ul className="list-disc ml-5 text-gray-700" style={{ fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)' }}>
+              {exp.achievements.map((achievement, idx) => (
+                <li key={idx} style={{ marginBottom: 'var(--resume-bullet-gap)' }}>{achievement}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  // Modern (blue) template layout
   return (
     <div
       className="experience-entry"

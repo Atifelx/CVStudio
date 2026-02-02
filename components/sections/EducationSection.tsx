@@ -3,18 +3,20 @@
 import React, { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { useResume } from '@/context/ResumeContext';
+import { useLayout } from '@/context/LayoutContext';
 import ResumeSection from '@/components/ResumeSection';
 import { InputField } from '@/components/EditSection';
 import { EducationItem } from '@/types/resume';
 
 /**
  * Education section component
- * 
- * This section is OPTIONAL - users can delete/restore it
+ * Supports both modern (blue) and classic (B&W) templates
  */
 export default function EducationSection() {
   const { resumeData, setResumeData, editingSection, setEditingSection } = useResume();
+  const { settings } = useLayout();
   const { education, sectionVisibility } = resumeData;
+  const isClassic = settings.template === 'classic';
   
   const [editData, setEditData] = useState<EducationItem[]>(education);
   const isEditing = editingSection === 'education';
@@ -186,7 +188,7 @@ export default function EducationSection() {
   return (
     <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection 
-        title="EDUCATION" 
+        title={isClassic ? "Education" : "EDUCATION"} 
         onEdit={handleEdit}
         isEditing={isEditing}
       >
@@ -196,6 +198,7 @@ export default function EducationSection() {
             edu={edu}
             index={index}
             isLast={index === education.length - 1}
+            isClassic={isClassic}
           />
         ))}
       </ResumeSection>
@@ -204,18 +207,42 @@ export default function EducationSection() {
 }
 
 /**
- * Individual education entry: single line, no bold for institution (saves space).
+ * Individual education entry
+ * Classic: multi-line format with degree bold
+ * Modern: single line format
  */
 function EducationEntry({ 
   edu, 
   index, 
-  isLast 
+  isLast,
+  isClassic 
 }: { 
   edu: EducationItem; 
   index: number; 
   isLast: boolean;
+  isClassic: boolean;
 }) {
   const baseStyle = { marginBottom: !isLast ? 'var(--resume-paragraph-gap)' : 0 };
+  
+  // Classic template: degree bold, institution + location on separate/same line
+  if (isClassic) {
+    return (
+      <div 
+        className="education-entry"
+        style={{ ...baseStyle, fontSize: 'var(--resume-font-size)', lineHeight: 'var(--resume-line-height)' }}
+      >
+        <p className="font-bold text-gray-900" style={{ margin: 0 }}>
+          {edu.degree}
+        </p>
+        <p className="text-gray-700" style={{ margin: 0 }}>
+          {edu.institution}
+          {edu.location && <span className="text-gray-500"> — {edu.location}</span>}
+        </p>
+      </div>
+    );
+  }
+  
+  // Modern template: single line
   const parts = [edu.degree, edu.institution, edu.location].filter(Boolean).join(' | ');
 
   return (

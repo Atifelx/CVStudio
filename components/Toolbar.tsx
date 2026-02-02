@@ -20,25 +20,30 @@ import {
   User,
   Sparkles,
   Trash2,
+  Palette,
+  BookOpen,
 } from 'lucide-react';
 import { useResume } from '@/context/ResumeContext';
 import { useLayout } from '@/context/LayoutContext';
 import { exportToDocx } from '@/utils/exportDocx';
 import { exportToPdf, printToPdf } from '@/utils/exportPdf';
 import { exportToPdfAts } from '@/utils/exportPdfAts';
+import SampleResumeDialog from '@/components/SampleResumeDialog';
 import {
   LINE_HEIGHT_OPTIONS,
   FONT_OPTIONS,
+  TEMPLATE_OPTIONS,
   SpacingPreset,
   PageSize,
   MarginPreset,
   ContentWidth,
   LineHeight,
   FontFamily,
+  TemplateType,
 } from '@/types/layout';
 
 /**
- * Enhanced Toolbar with Auto-Balance button
+ * Enhanced Toolbar with Auto-Balance button and Template Selector
  */
 export default function Toolbar() {
   const { resumeData, resetResume } = useResume();
@@ -52,6 +57,7 @@ export default function Toolbar() {
     setMargin,
     setContentWidth,
     setVerticalSpacing,
+    setTemplate,
     resetToDefaults,
     applyCompactPreset,
     applyUltraCompactPreset,
@@ -66,6 +72,7 @@ export default function Toolbar() {
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingPdfAts, setIsExportingPdfAts] = useState(false);
   const [showMoreControls, setShowMoreControls] = useState(false);
+  const [showSampleResume, setShowSampleResume] = useState(false);
 
   const baseName = resumeData.header.name.replace(/\s+/g, '_') || 'Resume';
 
@@ -123,6 +130,37 @@ export default function Toolbar() {
             <FileText className="text-blue-600" size={20} />
             <span className="text-lg font-bold text-gray-800">CV Studio</span>
           </div>
+
+          {/* Template Selector */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            <Palette size={14} className="text-gray-500 ml-1" />
+            {TEMPLATE_OPTIONS.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => setTemplate(t.value)}
+                className={`px-2 py-1 text-xs rounded transition-all ${
+                  settings.template === t.value
+                    ? t.value === 'modern'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-800 text-white'
+                    : 'text-gray-600 hover:bg-gray-200'
+                }`}
+                title={t.description}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Sample Resume Button */}
+          <button
+            onClick={() => setShowSampleResume(true)}
+            className="flex items-center gap-1 px-2 py-1 text-xs bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition-colors"
+            title="View sample resume with best practices"
+          >
+            <BookOpen size={14} />
+            Sample
+          </button>
 
           {/* Page Count */}
           <div className={`page-indicator ${getPageStatus()}`}>
@@ -456,6 +494,12 @@ export default function Toolbar() {
           )}
         </div>
       </div>
+
+      {/* Sample Resume Dialog */}
+      <SampleResumeDialog 
+        isOpen={showSampleResume} 
+        onClose={() => setShowSampleResume(false)} 
+      />
     </div>
   );
 }
