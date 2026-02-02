@@ -1,6 +1,6 @@
 import html2canvas from 'html2canvas';
 import { PDFDocument } from 'pdf-lib';
-import { LayoutSettings, PAGE_DIMENSIONS } from '@/types/layout';
+import { LayoutSettings, getPageDimensions } from '@/types/layout';
 
 /**
  * High-quality PDF Export (no print dialog)
@@ -47,8 +47,13 @@ export async function exportToPdf(
   };
 
   try {
-    const pageDim = PAGE_DIMENSIONS[settings.pageSize];
-    const marginMm = 5; // Minimal margins – use full page width (DOCX-like)
+    // Digital PDF: max width, 0.2mm margin left/right/top/bottom
+    const marginMm = 0.2;
+    const pageDim = getPageDimensions(settings);
+    // Content width in mm and in pixels (96dpi) so capture fills page and font size matches
+    const contentWidthMm = pageDim.width - marginMm * 2;
+    const mmToPx = 96 / 25.4;
+    const contentWidthPx = Math.round(contentWidthMm * mmToPx);
 
     // Show loading indicator
     const loadingDiv = document.createElement('div');
@@ -71,20 +76,23 @@ export async function exportToPdf(
     element.scrollIntoView({ block: 'start', behavior: 'instant' });
     await new Promise(resolve => setTimeout(resolve, 150));
 
-    // Calculate scale - reduce for smaller file size (target < 3MB)
-    // Lower scale = smaller file size but still good quality
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    // Use scale 4-5 instead of 8-10 to reduce file size while maintaining quality
-    const scale = Math.min(5, Math.max(4, Math.round(dpr * 2)));
+    // Scale 2: keeps file size down (target ≤2MB) and matches PDF size so font size is correct
+    const scale = 2;
 
     element.classList.add('pdf-export-active');
     const container = element.closest('.resume-container') || element;
     const originalOverflow = container instanceof HTMLElement ? container.style.overflow : '';
-    if (container instanceof HTMLElement) container.style.overflow = 'visible';
+    const originalWidth = container instanceof HTMLElement ? container.style.width : '';
+    const originalMaxWidth = container instanceof HTMLElement ? container.style.maxWidth : '';
+    if (container instanceof HTMLElement) {
+      container.style.overflow = 'visible';
+      // Force full page width so PDF has no empty left/right space and font size matches
+      container.style.width = `${contentWidthPx}px`;
+      container.style.maxWidth = 'none';
+    }
     
-    // Ensure full height is captured - scroll to top first
     window.scrollTo(0, 0);
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 150)); // reflow so layout uses new width
 
     const noPrintElements = element.querySelectorAll('.no-print');
     const originalDisplays: (string | null)[] = [];
@@ -117,10 +125,14 @@ export async function exportToPdf(
       foreignObjectRendering: false,
       // Ensure colors are captured correctly
       onclone: (clonedDoc) => {
-        // Force render colors by ensuring styles are applied
         const clonedElement = clonedDoc.getElementById(elementId);
         if (clonedElement) {
-          // Ensure all computed styles are preserved
+          // Full width so PDF has no empty sides and font size matches
+          const cloneContainer = clonedElement.closest('.resume-container') || clonedElement;
+          if (cloneContainer instanceof HTMLElement) {
+            (cloneContainer as HTMLElement).style.width = `${contentWidthPx}px`;
+            (cloneContainer as HTMLElement).style.maxWidth = 'none';
+          }
           const style = clonedDoc.createElement('style');
           style.textContent = `
             .text-blue-600 { color: rgb(37, 99, 235) !important; }
@@ -140,12 +152,13 @@ export async function exportToPdf(
       htmlEl.style.display = originalDisplays[index] || '';
     });
     
-    // Restore container overflow
+    // Restore container overflow and width
     if (container instanceof HTMLElement) {
       container.style.overflow = originalOverflow;
+      container.style.width = originalWidth;
+      container.style.maxWidth = originalMaxWidth;
     }
     
-    // Remove export class
     element.classList.remove('pdf-export-active');
 
     // Create PDF using pdf-lib
@@ -160,9 +173,9 @@ export async function exportToPdf(
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const pageContentHeight = pdfHeight - (marginPoints * 2);
 
-    // Convert canvas to JPEG image data (smaller file size than PNG)
-    // Use JPEG quality 0.85 for good quality but smaller size
-    const imgData = canvas.toDataURL('image/jpeg', 0.85);
+    // JPEG quality 0.72 for ≤2MB target; full-width capture keeps text sharp
+    const jpegQuality = 0.72;
+    const imgData = canvas.toDataURL('image/jpeg', jpegQuality);
     const imgBytes = await fetch(imgData).then(res => res.arrayBuffer());
     const jpegImage = await pdfDoc.embedJpg(imgBytes);
 
@@ -212,9 +225,7 @@ export async function exportToPdf(
           );
         }
 
-        // Embed page image with compression (JPEG for smaller size)
-        // Use JPEG with quality 0.85 to reduce file size while maintaining quality
-        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.85);
+        const pageImgData = pageCanvas.toDataURL('image/jpeg', jpegQuality);
         const pageImgBytes = await fetch(pageImgData).then(res => res.arrayBuffer());
         const pageJpegImage = await pdfDoc.embedJpg(pageImgBytes);
         
@@ -234,17 +245,15 @@ export async function exportToPdf(
     // Remove loading indicator
     document.body.removeChild(loadingDiv);
 
-    // Save the PDF
     let pdfBytes = await pdfDoc.save();
-    const maxSizeBytes = 3 * 1024 * 1024; // 3MB
+    const maxSizeBytes = 2 * 1024 * 1024; // 2MB max
     
-    // Check file size and reduce quality if needed
     if (pdfBytes.length > maxSizeBytes) {
-      console.log(`PDF size ${(pdfBytes.length / 1024 / 1024).toFixed(2)}MB exceeds 3MB, reducing quality...`);
-      
-      // Recreate with lower quality JPEG (0.75 instead of 0.85)
-      const pdfDoc2 = await PDFDocument.create();
-      const jpegImage2 = await pdfDoc2.embedJpg(await fetch(canvas.toDataURL('image/jpeg', 0.75)).then(r => r.arrayBuffer()));
+      console.log(`PDF size ${(pdfBytes.length / 1024 / 1024).toFixed(2)}MB exceeds 2MB, reducing quality...`);
+      const lowerQualities = [0.62, 0.52];
+      for (const q of lowerQualities) {
+        const pdfDoc2 = await PDFDocument.create();
+        const jpegImage2 = await pdfDoc2.embedJpg(await fetch(canvas.toDataURL('image/jpeg', q)).then(r => r.arrayBuffer()));
       
       if (imgHeight <= pageContentHeight) {
         const page = pdfDoc2.addPage([pdfWidth, pdfHeight]);
@@ -277,7 +286,7 @@ export async function exportToPdf(
             ctx2.imageSmoothingQuality = 'high';
             ctx2.drawImage(canvas, 0, sourceY2, canvas.width, sourceHeight2, 0, 0, canvas.width, sourceHeight2);
             
-            const pageImgData2 = pageCanvas2.toDataURL('image/jpeg', 0.75);
+            const pageImgData2 = pageCanvas2.toDataURL('image/jpeg', q);
             const pageJpegImage2 = await pdfDoc2.embedJpg(await fetch(pageImgData2).then(r => r.arrayBuffer()));
             page.drawImage(pageJpegImage2, {
               x: marginPoints,
@@ -292,8 +301,10 @@ export async function exportToPdf(
         }
       }
       
-      pdfBytes = await pdfDoc2.save();
-      console.log(`Reduced PDF size to ${(pdfBytes.length / 1024 / 1024).toFixed(2)}MB`);
+        pdfBytes = await pdfDoc2.save();
+        if (pdfBytes.length <= maxSizeBytes) break;
+      }
+      if (pdfBytes.length > maxSizeBytes) console.log(`PDF size after reduction: ${(pdfBytes.length / 1024 / 1024).toFixed(2)}MB`);
     }
     
     const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
@@ -311,7 +322,11 @@ export async function exportToPdf(
     
   } catch (error) {
     console.error('PDF export error:', error);
-    
+    const container = element.closest('.resume-container');
+    if (container instanceof HTMLElement) {
+      container.style.width = '';
+      container.style.maxWidth = '';
+    }
     const loadingDiv = document.getElementById('pdf-loading');
     if (loadingDiv) {
       document.body.removeChild(loadingDiv);

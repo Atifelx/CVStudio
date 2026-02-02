@@ -57,6 +57,7 @@ export default function Toolbar() {
     setFontFamily,
     setSpacing,
     setPageSize,
+    setCustomPageDimensions,
     setMargin,
     setContentWidth,
     setVerticalSpacing,
@@ -518,8 +519,35 @@ export default function Toolbar() {
                     >
                       <option value="a4">A4</option>
                       <option value="letter">Letter</option>
+                      <option value="custom">Custom (mm)</option>
                     </select>
                   </div>
+                  {settings.pageSize === 'custom' && (
+                    <>
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">Width (mm)</label>
+                        <input
+                          type="number"
+                          min={50}
+                          max={500}
+                          value={settings.customPageWidthMm ?? 210}
+                          onChange={(e) => setCustomPageDimensions(Number(e.target.value) || 210, settings.customPageHeightMm ?? 297)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 block mb-1">Height (mm)</label>
+                        <input
+                          type="number"
+                          min={50}
+                          max={500}
+                          value={settings.customPageHeightMm ?? 297}
+                          onChange={(e) => setCustomPageDimensions(settings.customPageWidthMm ?? 210, Number(e.target.value) || 297)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
+                        />
+                      </div>
+                    </>
+                  )}
                   <div>
                     <label className="text-xs text-gray-500 block mb-1">
                       Margins {(settings.spacing === 'compact' || settings.fontSize <= 10 || vs.sectionGap <= 10) && 

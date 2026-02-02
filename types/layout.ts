@@ -8,12 +8,27 @@ export const TEMPLATE_OPTIONS: Array<{ value: TemplateType; label: string; descr
   { value: 'classic', label: 'Classic B&W', description: 'Traditional black & white, ATS-optimized' },
 ];
 
-export type PageSize = 'a4' | 'letter';
+export type PageSize = 'a4' | 'letter' | 'custom';
 
-export const PAGE_DIMENSIONS: Record<PageSize, { width: number; height: number; name: string }> = {
+export const PAGE_DIMENSIONS: Record<'a4' | 'letter', { width: number; height: number; name: string }> = {
   a4: { width: 210, height: 297, name: 'A4' },
   letter: { width: 215.9, height: 279.4, name: 'Letter' },
 };
+
+/** Resolve effective page dimensions (A4, Letter, or custom when set). */
+export function getPageDimensions(settings: LayoutSettings): { width: number; height: number; name: string } {
+  if (
+    settings.pageSize === 'custom' &&
+    settings.customPageWidthMm != null &&
+    settings.customPageHeightMm != null &&
+    settings.customPageWidthMm > 0 &&
+    settings.customPageHeightMm > 0
+  ) {
+    return { width: settings.customPageWidthMm, height: settings.customPageHeightMm, name: 'Custom' };
+  }
+  const size = settings.pageSize as 'a4' | 'letter' | undefined;
+  return PAGE_DIMENSIONS[size === 'letter' ? 'letter' : 'a4'];
+}
 
 export type MarginPreset = 'narrow' | 'normal' | 'wide';
 
@@ -152,6 +167,9 @@ export interface LayoutSettings {
   fontFamily: FontFamily;
   spacing: SpacingPreset;
   pageSize: PageSize;
+  /** Used when pageSize is 'custom' (width × height in mm) */
+  customPageWidthMm?: number;
+  customPageHeightMm?: number;
   margin: MarginPreset;
   contentWidth: ContentWidth;
   verticalSpacing: VerticalSpacing;

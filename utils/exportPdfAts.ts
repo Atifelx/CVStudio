@@ -164,8 +164,7 @@ export async function exportToPdfAts(
   try {
     const { header, summary, skills, experience, education, generalSections, customSections, sectionVisibility } = resumeData;
     const settings = layoutSettings || ({} as LayoutSettings);
-    const pageSize = settings.pageSize === 'letter' ? 'letter' : 'a4';
-    const pageDim = PAGE_DIMENSIONS[pageSize];
+    const pageDim = getPageDimensions(settings);
     const marginMm = settings.margin ? MARGIN_VALUES[settings.margin].value : DEFAULT_MARGIN_MM;
 
     // Create PDF document

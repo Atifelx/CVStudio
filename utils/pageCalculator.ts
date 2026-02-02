@@ -1,6 +1,6 @@
 import {
   LayoutSettings,
-  PAGE_DIMENSIONS,
+  getPageDimensions,
   MARGIN_VALUES,
 } from '@/types/layout';
 
@@ -26,8 +26,8 @@ export function calculatePageCount(
   contentHeightPx: number,
   settings: LayoutSettings
 ): PageCountResult {
-  // Get page dimensions in mm
-  const pageDimensions = PAGE_DIMENSIONS[settings.pageSize];
+  // Get page dimensions in mm (A4, Letter, or custom)
+  const pageDimensions = getPageDimensions(settings);
   const marginMm = MARGIN_VALUES[settings.margin].value;
   
   // Calculate usable height (page height minus top and bottom margins)

@@ -19,7 +19,7 @@ import {
   ColorTheme,
   PrintOrientation,
   COLOR_THEMES,
-  PAGE_DIMENSIONS,
+  getPageDimensions,
   MARGIN_VALUES,
 } from '@/types/layout';
 
@@ -41,6 +41,7 @@ interface LayoutContextType {
   setFontFamily: (font: FontFamily) => void;
   setSpacing: (spacing: SpacingPreset) => void;
   setPageSize: (size: PageSize) => void;
+  setCustomPageDimensions: (widthMm: number, heightMm: number) => void;
   setMargin: (margin: MarginPreset) => void;
   setContentWidth: (width: ContentWidth) => void;
   setVerticalSpacing: (spacing: Partial<VerticalSpacing>) => void;
@@ -82,7 +83,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const autoFitInProgress = useRef(false);
 
   const getUsableHeightPx = useCallback((s: LayoutSettings) => {
-    const pageDim = PAGE_DIMENSIONS[s.pageSize];
+    const pageDim = getPageDimensions(s);
     const marginMm = MARGIN_VALUES[s.margin].value;
     const usableHeightMm = pageDim.height - (marginMm * 2);
     return usableHeightMm * 3.78;
@@ -106,7 +107,20 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setPageSize = useCallback((pageSize: PageSize) => {
-    setSettings((prev) => ({ ...prev, pageSize }));
+    setSettings((prev) => ({
+      ...prev,
+      pageSize,
+      ...(pageSize !== 'custom' ? { customPageWidthMm: undefined, customPageHeightMm: undefined } : {}),
+    }));
+  }, []);
+
+  const setCustomPageDimensions = useCallback((widthMm: number, heightMm: number) => {
+    setSettings((prev) => ({
+      ...prev,
+      pageSize: 'custom',
+      customPageWidthMm: widthMm,
+      customPageHeightMm: heightMm,
+    }));
   }, []);
 
   const setMargin = useCallback((margin: MarginPreset) => {
@@ -298,7 +312,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
       pageCount,
       isOverLimit: pageCount > 3,
       contentHeight,
-      pageHeight: PAGE_DIMENSIONS[settings.pageSize].height,
+      pageHeight: getPageDimensions(settings).height,
       usableHeight,
       pageBreakPositions,
     });
@@ -387,6 +401,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         setFontFamily,
         setSpacing,
         setPageSize,
+        setCustomPageDimensions,
         setMargin,
         setContentWidth,
         setVerticalSpacing,

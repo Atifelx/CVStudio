@@ -12,7 +12,7 @@ import { saveAs } from 'file-saver';
 import { ResumeData } from '@/types/resume';
 import {
   LayoutSettings,
-  PAGE_DIMENSIONS,
+  getPageDimensions,
   MARGIN_VALUES,
   DEFAULT_LAYOUT_SETTINGS,
 } from '@/types/layout';
@@ -49,7 +49,7 @@ export async function exportToDocx(
   // Page setup
   const marginMm = MARGIN_VALUES[settings.margin].value;
   const marginTwips = convertMillimetersToTwip(marginMm);
-  const pageDim = PAGE_DIMENSIONS[settings.pageSize];
+  const pageDim = getPageDimensions(settings);
   const pageWidthTwips = convertMillimetersToTwip(pageDim.width);
   const pageHeightTwips = convertMillimetersToTwip(pageDim.height);
 
