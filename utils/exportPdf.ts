@@ -41,7 +41,7 @@ export async function exportToPdf(
     },
     targetPages: null,
     template: 'modern',
-    colorTheme: 'blue',
+    colorTheme: 'charcoal',
   };
 
   try {

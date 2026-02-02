@@ -133,17 +133,29 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     setSettings((prev) => ({ ...prev, colorTheme }));
   }, []);
 
-  // Presets
+  // Presets - preserve current template and colorTheme when applying presets
   const resetToDefaults = useCallback(() => {
-    setSettings(DEFAULT_LAYOUT_SETTINGS);
+    setSettings((prev) => ({
+      ...DEFAULT_LAYOUT_SETTINGS,
+      template: prev.template,
+      colorTheme: prev.colorTheme,
+    }));
   }, []);
 
   const applyCompactPreset = useCallback(() => {
-    setSettings(COMPACT_LAYOUT_SETTINGS);
+    setSettings((prev) => ({
+      ...COMPACT_LAYOUT_SETTINGS,
+      template: prev.template,
+      colorTheme: prev.colorTheme,
+    }));
   }, []);
 
   const applyUltraCompactPreset = useCallback(() => {
-    setSettings(ULTRA_COMPACT_SETTINGS);
+    setSettings((prev) => ({
+      ...ULTRA_COMPACT_SETTINGS,
+      template: prev.template,
+      colorTheme: prev.colorTheme,
+    }));
   }, []);
 
   /**
@@ -155,7 +167,11 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
    * wants to return to a balanced, professional look.
    */
   const applyBalancedPreset = useCallback(() => {
-    setSettings(BALANCED_LAYOUT_SETTINGS);
+    setSettings((prev) => ({
+      ...BALANCED_LAYOUT_SETTINGS,
+      template: prev.template,
+      colorTheme: prev.colorTheme,
+    }));
   }, []);
 
   // Auto-fit algorithm
@@ -174,7 +190,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     let newSettings: LayoutSettings = { ...settings };
 
     if (targetPages === 1) {
-      newSettings = { ...ULTRA_COMPACT_SETTINGS, targetPages: 1 };
+      newSettings = { ...ULTRA_COMPACT_SETTINGS, targetPages: 1, template: settings.template, colorTheme: settings.colorTheme };
     } else if (targetPages === 2) {
       if (reductionNeeded > 1.5) {
         newSettings = {
@@ -191,6 +207,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
             headerPadding: 14,
           },
           targetPages: 2,
+          template: settings.template,
+          colorTheme: settings.colorTheme,
         };
       } else {
         newSettings = {
@@ -225,6 +243,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
           headerPadding: 18,
         },
         targetPages: 3,
+        template: settings.template,
+        colorTheme: settings.colorTheme,
       };
     }
 

@@ -157,15 +157,16 @@ export default function Toolbar() {
 
           {/* Color Theme Selector (only for modern template) */}
           {settings.template === 'modern' && (
-            <div className="flex items-center gap-1">
-              {COLOR_THEMES.slice(0, 6).map((color) => (
+            <div className="flex items-center gap-1 bg-gray-50 rounded-lg px-2 py-1">
+              <span className="text-xs text-gray-500 mr-1">Color:</span>
+              {COLOR_THEMES.map((color) => (
                 <button
                   key={color.value}
                   onClick={() => setColorTheme(color.value)}
                   className={`w-5 h-5 rounded-full border-2 transition-all ${
                     settings.colorTheme === color.value
-                      ? 'border-gray-800 scale-110'
-                      : 'border-transparent hover:scale-110'
+                      ? 'border-white ring-2 ring-offset-1 ring-gray-400 scale-110'
+                      : 'border-gray-300 hover:scale-110 hover:border-gray-400'
                   }`}
                   style={{ backgroundColor: color.primary }}
                   title={color.label}

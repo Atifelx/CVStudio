@@ -67,26 +67,27 @@ export const FONT_OPTIONS: Array<{ value: FontFamily; label: string; category: '
   { value: 'Source Sans Pro', label: 'Source Sans Pro', category: 'sans-serif', description: 'Adobe - professional' },
 ];
 
-// Color themes for modern template
+// Color themes for modern template - Rich, professional colors for high-quality resumes
 export type ColorTheme = 
-  | 'blue'       // Default professional blue
+  | 'charcoal'   // Rich charcoal gray - most professional
+  | 'black'      // Deep black - classic executive
+  | 'slate'      // Slate gray - modern professional
   | 'navy'       // Deep navy - corporate
-  | 'teal'       // Teal - creative professional
-  | 'green'      // Forest green - finance/consulting
-  | 'purple'     // Purple - creative industries
-  | 'maroon'     // Maroon/burgundy - executive
-  | 'charcoal'   // Dark gray - minimalist
-  | 'black';     // Pure black - classic
+  | 'graphite'   // Graphite - subtle elegance
+  | 'steel'      // Steel blue-gray - tech professional
+  | 'midnight'   // Midnight blue - sophisticated
+  | 'espresso';  // Deep brown - warm executive
 
 export const COLOR_THEMES: Array<{ value: ColorTheme; label: string; primary: string; gradient: string; accent: string }> = [
-  { value: 'blue', label: 'Professional Blue', primary: '#1e40af', gradient: 'from-blue-900 to-blue-700', accent: 'blue-600' },
-  { value: 'navy', label: 'Corporate Navy', primary: '#1e3a5f', gradient: 'from-slate-900 to-slate-700', accent: 'slate-700' },
-  { value: 'teal', label: 'Modern Teal', primary: '#0f766e', gradient: 'from-teal-900 to-teal-700', accent: 'teal-600' },
-  { value: 'green', label: 'Forest Green', primary: '#166534', gradient: 'from-green-900 to-green-700', accent: 'green-600' },
-  { value: 'purple', label: 'Creative Purple', primary: '#6b21a8', gradient: 'from-purple-900 to-purple-700', accent: 'purple-600' },
-  { value: 'maroon', label: 'Executive Maroon', primary: '#7f1d1d', gradient: 'from-red-900 to-red-800', accent: 'red-800' },
-  { value: 'charcoal', label: 'Minimalist Gray', primary: '#374151', gradient: 'from-gray-800 to-gray-600', accent: 'gray-600' },
-  { value: 'black', label: 'Classic Black', primary: '#171717', gradient: 'from-neutral-900 to-neutral-800', accent: 'neutral-800' },
+  // Rich Professional Colors (most used in high-quality resumes)
+  { value: 'charcoal', label: 'Rich Charcoal', primary: '#2d3748', gradient: 'from-gray-800 to-gray-700', accent: 'gray-700' },
+  { value: 'black', label: 'Deep Black', primary: '#1a1a1a', gradient: 'from-black to-gray-900', accent: 'gray-900' },
+  { value: 'slate', label: 'Slate Gray', primary: '#475569', gradient: 'from-slate-700 to-slate-600', accent: 'slate-600' },
+  { value: 'navy', label: 'Navy Blue', primary: '#1e3a5f', gradient: 'from-slate-900 to-slate-800', accent: 'slate-800' },
+  { value: 'graphite', label: 'Graphite', primary: '#374151', gradient: 'from-gray-700 to-gray-600', accent: 'gray-600' },
+  { value: 'steel', label: 'Steel Blue', primary: '#334155', gradient: 'from-slate-800 to-slate-700', accent: 'slate-700' },
+  { value: 'midnight', label: 'Midnight', primary: '#0f172a', gradient: 'from-slate-950 to-slate-900', accent: 'slate-900' },
+  { value: 'espresso', label: 'Espresso', primary: '#292524', gradient: 'from-stone-800 to-stone-700', accent: 'stone-700' },
 ];
 
 export interface VerticalSpacing {
@@ -161,7 +162,7 @@ export const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = {
   verticalSpacing: DEFAULT_VERTICAL_SPACING,
   targetPages: null,
   template: 'modern',
-  colorTheme: 'blue',
+  colorTheme: 'charcoal', // Rich charcoal - professional default
 };
 
 // COMPACT: Smaller text for fitting more content
@@ -176,7 +177,7 @@ export const COMPACT_LAYOUT_SETTINGS: LayoutSettings = {
   verticalSpacing: COMPACT_VERTICAL_SPACING,
   targetPages: null,
   template: 'modern',
-  colorTheme: 'blue',
+  colorTheme: 'charcoal',
 };
 
 // ULTRA COMPACT: Maximum density (9pt minimum readable)
@@ -191,7 +192,7 @@ export const ULTRA_COMPACT_SETTINGS: LayoutSettings = {
   verticalSpacing: ULTRA_COMPACT_SPACING,
   targetPages: 1,
   template: 'modern',
-  colorTheme: 'blue',
+  colorTheme: 'charcoal',
 };
 
 // BALANCED: Professional look (11pt standard)
@@ -206,5 +207,5 @@ export const BALANCED_LAYOUT_SETTINGS: LayoutSettings = {
   verticalSpacing: BALANCED_VERTICAL_SPACING,
   targetPages: null,
   template: 'modern',
-  colorTheme: 'blue',
+  colorTheme: 'charcoal',
 };

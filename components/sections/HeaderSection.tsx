@@ -9,6 +9,18 @@ import EditSection, { InputField } from '@/components/EditSection';
 import { HeaderData } from '@/types/resume';
 import { COLOR_THEMES } from '@/types/layout';
 
+// Map color themes to actual gradient CSS values
+const GRADIENT_STYLES: Record<string, { from: string; to: string }> = {
+  blue: { from: '#1e3a8a', to: '#1d4ed8' },
+  navy: { from: '#0f172a', to: '#334155' },
+  teal: { from: '#134e4a', to: '#0f766e' },
+  green: { from: '#14532d', to: '#166534' },
+  purple: { from: '#581c87', to: '#7c3aed' },
+  maroon: { from: '#7f1d1d', to: '#991b1b' },
+  charcoal: { from: '#1f2937', to: '#4b5563' },
+  black: { from: '#171717', to: '#404040' },
+};
+
 /**
  * Header section component with proportional text scaling
  * Supports both modern (with color themes) and classic (B&W centered) templates
@@ -21,6 +33,7 @@ export default function HeaderSection() {
   
   // Get color theme for modern template
   const colorTheme = COLOR_THEMES.find(c => c.value === settings.colorTheme) || COLOR_THEMES[0];
+  const gradientStyle = GRADIENT_STYLES[settings.colorTheme || 'blue'];
   
   const [editData, setEditData] = useState<HeaderData>(header);
   const isEditing = editingSection === 'header';
@@ -75,7 +88,10 @@ export default function HeaderSection() {
   // Edit mode (same for both templates)
   if (isEditing) {
     return (
-      <div className={isClassic ? "bg-gray-100 p-6 border-b border-gray-300" : `bg-gradient-to-r ${colorTheme.gradient} text-white p-6`}>
+      <div 
+        className={isClassic ? "bg-gray-100 p-6 border-b border-gray-300" : "text-white p-6"}
+        style={isClassic ? undefined : { background: `linear-gradient(to right, ${gradientStyle.from}, ${gradientStyle.to})` }}
+      >
         <EditSection onSave={handleSave} onCancel={handleCancel} title="Header">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
@@ -115,8 +131,9 @@ export default function HeaderSection() {
         onClick={handleEdit}
         className={isClassic 
           ? "bg-gray-50 p-8 cursor-pointer hover:bg-gray-100 transition-all border-b border-gray-200"
-          : `bg-gradient-to-r ${colorTheme.gradient} text-white p-8 cursor-pointer hover:opacity-90 transition-all`
+          : "text-white p-8 cursor-pointer hover:opacity-90 transition-all"
         }
+        style={isClassic ? undefined : { background: `linear-gradient(to right, ${gradientStyle.from}, ${gradientStyle.to})` }}
       >
         <div className="text-center">
           <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
@@ -221,8 +238,9 @@ export default function HeaderSection() {
   return (
     <ResumeSection onEdit={handleEdit} showEditButton={true}>
       <div 
-        className={`bg-gradient-to-r ${colorTheme.gradient} text-white transition-all duration-150`}
+        className="text-white transition-all duration-150"
         style={{ 
+          background: `linear-gradient(to right, ${gradientStyle.from}, ${gradientStyle.to})`,
           padding: `${headerPadding}px ${Math.round(24 * scaleFactor + 8)}px`,
         }}
       >
