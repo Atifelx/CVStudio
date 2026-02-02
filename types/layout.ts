@@ -71,6 +71,7 @@ export const FONT_OPTIONS: Array<{ value: FontFamily; label: string; category: '
 
 // Color themes for modern template - Rich, professional colors for high-quality resumes
 export type ColorTheme = 
+  | 'blue'       // Blue - default, professional
   | 'charcoal'   // Rich charcoal gray - most professional
   | 'black'      // Deep black - classic executive
   | 'slate'      // Slate gray - modern professional
@@ -84,7 +85,8 @@ export type ColorTheme =
   | 'silver';    // Silver - neutral light
 
 export const COLOR_THEMES: Array<{ value: ColorTheme; label: string; primary: string; gradient: string; accent: string; light?: boolean; /** Dark color for section titles on white background when light theme */ titleColor?: string }> = [
-  // Rich Professional (dark header, white text)
+  // Default & Rich Professional (dark header, white text)
+  { value: 'blue', label: 'Blue', primary: '#1d4ed8', gradient: 'from-blue-800 to-blue-600', accent: 'blue-600' },
   { value: 'charcoal', label: 'Charcoal', primary: '#2d3748', gradient: 'from-gray-800 to-gray-700', accent: 'gray-700' },
   { value: 'black', label: 'Black', primary: '#1a1a1a', gradient: 'from-black to-gray-900', accent: 'gray-900' },
   { value: 'slate', label: 'Slate', primary: '#475569', gradient: 'from-slate-700 to-slate-600', accent: 'slate-600' },
@@ -175,7 +177,7 @@ export const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = {
   verticalSpacing: DEFAULT_VERTICAL_SPACING,
   targetPages: null,
   template: 'modern',
-  colorTheme: 'charcoal',
+  colorTheme: 'blue',
   printCompact: true,
   printOrientation: 'portrait',
 };
@@ -192,7 +194,7 @@ export const COMPACT_LAYOUT_SETTINGS: LayoutSettings = {
   verticalSpacing: COMPACT_VERTICAL_SPACING,
   targetPages: null,
   template: 'modern',
-  colorTheme: 'charcoal',
+  colorTheme: 'blue',
   printCompact: true,
   printOrientation: 'portrait',
 };
@@ -209,7 +211,7 @@ export const ULTRA_COMPACT_SETTINGS: LayoutSettings = {
   verticalSpacing: ULTRA_COMPACT_SPACING,
   targetPages: 1,
   template: 'modern',
-  colorTheme: 'charcoal',
+  colorTheme: 'blue',
   printCompact: true,
   printOrientation: 'portrait',
 };
@@ -226,7 +228,7 @@ export const BALANCED_LAYOUT_SETTINGS: LayoutSettings = {
   verticalSpacing: BALANCED_VERTICAL_SPACING,
   targetPages: null,
   template: 'modern',
-  colorTheme: 'charcoal',
+  colorTheme: 'blue',
   printCompact: true,
   printOrientation: 'portrait',
 };

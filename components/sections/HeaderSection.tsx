@@ -11,6 +11,7 @@ import { COLOR_THEMES } from '@/types/layout';
 
 // Map every ColorTheme to gradient CSS values (avoids crash when theme is missing)
 const GRADIENT_STYLES: Record<string, { from: string; to: string }> = {
+  blue: { from: '#1e40af', to: '#2563eb' },
   charcoal: { from: '#2d3748', to: '#4a5568' },
   black: { from: '#1a1a1a', to: '#2d2d2d' },
   slate: { from: '#475569', to: '#64748b' },
@@ -36,8 +37,8 @@ export default function HeaderSection() {
   
   // Get color theme for modern template (safe fallback to avoid crash)
   const colorTheme = COLOR_THEMES.find(c => c.value === settings.colorTheme) || COLOR_THEMES[0];
-  const themeKey = settings.colorTheme || 'charcoal';
-  const gradientStyle = GRADIENT_STYLES[themeKey] || GRADIENT_STYLES['charcoal'];
+  const themeKey = settings.colorTheme || 'blue';
+  const gradientStyle = GRADIENT_STYLES[themeKey] || GRADIENT_STYLES['blue'];
   const isLightTheme = colorTheme.light === true;
   
   const [editData, setEditData] = useState<HeaderData>(header);
@@ -82,7 +83,8 @@ export default function HeaderSection() {
   // Calculate proportional text sizes (using points converted to pixels)
   const baseFontSizePx = Math.round(settings.fontSize * 1.333);
   const nameSize = Math.round(baseFontSizePx * 2.5 * scaleFactor);
-  const titleSize = Math.round(baseFontSizePx * 1.3 * scaleFactor);
+  // Professional title: 10% larger + heavier weight so it reads like a heading
+  const titleSize = Math.round(baseFontSizePx * 1.3 * 1.1 * scaleFactor);
   const contactSize = Math.round(baseFontSizePx * scaleFactor);
   const iconSize = Math.round(14 * scaleFactor);
   
@@ -188,12 +190,13 @@ export default function HeaderSection() {
             {header.name}
           </h1>
           
-          {/* Title - centered below name */}
+          {/* Title - centered below name (heading-style: +10% size, +20% weight) */}
           {header.title && (
             <h2 
               className="text-gray-700 transition-all duration-150"
               style={{ 
                 fontSize: `${titleSize}px`,
+                fontWeight: 600,
                 marginBottom: `${Math.max(6, sectionGap / 2)}px`,
                 lineHeight: settings.lineHeight
               }}
@@ -261,12 +264,13 @@ export default function HeaderSection() {
           {header.name}
         </h1>
         
-        {/* Title - scales proportionally */}
+        {/* Title - heading-style: +10% size, +20% weight */}
         {header.title && (
           <h2 
             className="transition-all duration-150"
             style={{ 
               fontSize: `${titleSize}px`,
+              fontWeight: 600,
               marginBottom: `${Math.max(4, sectionGap)}px`,
               lineHeight: settings.lineHeight
             }}

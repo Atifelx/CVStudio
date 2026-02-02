@@ -26,7 +26,7 @@ import {
 import { useResume } from '@/context/ResumeContext';
 import { useLayout } from '@/context/LayoutContext';
 import { exportToDocx } from '@/utils/exportDocx';
-import { exportToPdf, printToPdf } from '@/utils/exportPdf';
+import { exportToPdf } from '@/utils/exportPdf';
 import { exportToPdfAts } from '@/utils/exportPdfAts';
 import SampleResumeDialog from '@/components/SampleResumeDialog';
 import {
@@ -77,10 +77,27 @@ export default function Toolbar() {
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingPdfAts, setIsExportingPdfAts] = useState(false);
+  const [isExportingPdfWide, setIsExportingPdfWide] = useState(false);
+  const [widePdfMaxPages, setWidePdfMaxPages] = useState<1 | 2 | 3>(2);
   const [showMoreControls, setShowMoreControls] = useState(false);
   const [showSampleResume, setShowSampleResume] = useState(false);
 
   const baseName = resumeData.header.name.replace(/\s+/g, '_') || 'Resume';
+
+  const handleExportPdfWide = async () => {
+    setIsExportingPdfWide(true);
+    try {
+      await exportToPdf('resume-content', `${baseName}_Resume_Wide.pdf`, settings, {
+        landscape: true,
+        maxPages: widePdfMaxPages,
+      });
+    } catch (error) {
+      console.error('Wide PDF export error:', error);
+      alert('Failed to export wide PDF.');
+    } finally {
+      setIsExportingPdfWide(false);
+    }
+  };
 
   const handleExportPdf = async () => {
     setIsExportingPdf(true);
@@ -275,13 +292,28 @@ export default function Toolbar() {
 
           {/* Export */}
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={printToPdf}
-              title="Best quality · Browser print, then Save as PDF · Sharp vector text"
-              className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-medium border border-indigo-700"
-            >
-              Print → PDF <span className="opacity-90 text-[10px]">recommended</span>
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleExportPdfWide}
+                disabled={isExportingPdfWide}
+                title="Export wide PDF directly (landscape, no print dialog). Compact layout fits in max pages below."
+                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:bg-indigo-400 text-xs font-medium border border-indigo-700"
+              >
+                {isExportingPdfWide ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+                Export PDF (wide)
+              </button>
+              <span className="text-xs text-gray-500">Max pages:</span>
+              {([1, 2, 3] as const).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setWidePdfMaxPages(n)}
+                  className={`px-1.5 py-0.5 text-xs rounded ${widePdfMaxPages === n ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
             <button
               onClick={handleExportPdf}
               disabled={isExportingPdf}

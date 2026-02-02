@@ -402,6 +402,31 @@ body {
    PDF Export Optimizations
    ========================================================================== */
 
+/* Compact layout for "wide PDF" max 2 pages – tighter spacing and smaller font */
+.resume-container.pdf-export-compact-2pages {
+  font-size: calc(var(--resume-font-size) * 0.88) !important;
+  line-height: 1.12 !important;
+}
+.resume-container.pdf-export-compact-2pages .resume-section {
+  margin-bottom: 8px !important;
+}
+.resume-container.pdf-export-compact-2pages .experience-entry,
+.resume-container.pdf-export-compact-2pages .education-entry {
+  margin-bottom: 6px !important;
+}
+.resume-container.pdf-export-compact-2pages p,
+.resume-container.pdf-export-compact-2pages li {
+  margin-bottom: 2px !important;
+}
+.resume-container.pdf-export-compact-2pages h1 {
+  font-size: 1.35em !important;
+}
+.resume-container.pdf-export-compact-2pages h2,
+.resume-container.pdf-export-compact-2pages h3 {
+  font-size: 1.15em !important;
+  margin-bottom: 2px !important;
+}
+
 /* Ensure proper rendering during PDF export – do NOT change padding/margins.
  * PDF must match the app exactly; capture as-is. */
 .pdf-export-active,
