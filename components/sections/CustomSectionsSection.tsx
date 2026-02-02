@@ -367,10 +367,10 @@ export default function CustomSectionsSection() {
     );
   }
 
-  // Empty state - show add button
+  // Empty state - show add button (hidden in PDF/print)
   if (!customSections || customSections.length === 0) {
     return (
-      <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+      <div className="px-8 no-print" style={{ paddingTop: 'var(--resume-section-gap)' }}>
         <div 
           onClick={() => handleEdit()}
           className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
