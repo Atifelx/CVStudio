@@ -9,6 +9,20 @@ export interface ExportPdfOptions {
   quality?: 'standard' | 'small';
 }
 
+/** Collect Y positions (canvas pixels) where we can safely split pages (bottom of sections/entries). */
+function getSafeBreakPoints(element: HTMLElement, scale: number): number[] {
+  const containerTop = element.getBoundingClientRect().top;
+  const selector = '.experience-entry, .education-entry, .skill-category';
+  const entries = element.querySelectorAll(selector);
+  const set = new Set<number>();
+  entries.forEach((el) => {
+    const r = (el as HTMLElement).getBoundingClientRect();
+    const bottomFromTop = r.bottom - containerTop;
+    if (bottomFromTop > 0) set.add(Math.round(bottomFromTop * scale));
+  });
+  return Array.from(set).sort((a, b) => a - b);
+}
+
 /**
  * High-quality PDF Export (no print dialog). Target file size ≤2MB.
  */
@@ -156,6 +170,9 @@ export async function exportToPdf(
     console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
     console.log('Element dimensions:', element.scrollWidth, 'x', fullHeight);
 
+    // Safe break points (bottom of experience/education/skill blocks) so we don't split mid-section
+    const safeBreakPoints = getSafeBreakPoints(element as HTMLElement, scale);
+
     // Restore original display styles
     noPrintElements.forEach((el, index) => {
       const htmlEl = el as HTMLElement;
@@ -198,18 +215,29 @@ export async function exportToPdf(
         height: imgHeight,
       });
     } else {
-      // Multi-page
-      let remainingHeight = imgHeight;
+      // Multi-page: split at section boundaries to avoid cutting through experience/education blocks
       let sourceY = 0;
-      let pageNum = 0;
-      
       const pixelsPerPoint = canvas.width / imgWidth;
-      
-      while (remainingHeight > 0) {
+      const pageContentHeightPx = pageContentHeight * pixelsPerPoint;
+
+      while (sourceY < canvas.height) {
         const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
-        
-        const drawHeight = Math.min(pageContentHeight, remainingHeight);
-        const sourceHeight = drawHeight * pixelsPerPoint;
+        const idealEndY = Math.min(sourceY + pageContentHeightPx, canvas.height);
+
+        // Prefer ending at a safe break (bottom of an experience/education/skill block)
+        let endY = idealEndY;
+        const nextSafeAfter = safeBreakPoints.find((p) => p > sourceY && p <= idealEndY);
+        if (nextSafeAfter != null) {
+          endY = nextSafeAfter;
+        } else {
+          const firstSafeAfter = safeBreakPoints.find((p) => p >= idealEndY);
+          if (firstSafeAfter != null && firstSafeAfter - idealEndY < pageContentHeightPx * 0.25) {
+            endY = firstSafeAfter;
+          }
+        }
+
+        const sourceHeight = Math.min(endY - sourceY, canvas.height - sourceY);
+        const drawHeight = sourceHeight / pixelsPerPoint;
 
         // Create page canvas
         const pageCanvas = document.createElement('canvas');
@@ -246,8 +274,6 @@ export async function exportToPdf(
         });
 
         sourceY += sourceHeight;
-        remainingHeight -= drawHeight;
-        pageNum++;
       }
     }
 
@@ -272,28 +298,34 @@ export async function exportToPdf(
           height: imgHeight,
         });
       } else {
-        // Recreate multi-page with lower quality
-        let remainingHeight2 = imgHeight;
+        // Recreate multi-page with lower quality (same section-aware breaks)
         let sourceY2 = 0;
         const pixelsPerPoint2 = canvas.width / imgWidth;
-        
-        while (remainingHeight2 > 0) {
+        const pageContentHeightPx2 = pageContentHeight * pixelsPerPoint2;
+
+        while (sourceY2 < canvas.height) {
           const page = pdfDoc2.addPage([pdfWidth, pdfHeight]);
-          const drawHeight2 = Math.min(pageContentHeight, remainingHeight2);
-          const sourceHeight2 = drawHeight2 * pixelsPerPoint2;
-          
+          const idealEndY2 = Math.min(sourceY2 + pageContentHeightPx2, canvas.height);
+          let endY2 = idealEndY2;
+          const nextSafe2 = safeBreakPoints.find((p) => p > sourceY2 && p <= idealEndY2);
+          if (nextSafe2 != null) endY2 = nextSafe2;
+          else {
+            const firstSafe2 = safeBreakPoints.find((p) => p >= idealEndY2);
+            if (firstSafe2 != null && firstSafe2 - idealEndY2 < pageContentHeightPx2 * 0.25) endY2 = firstSafe2;
+          }
+          const sourceHeight2 = Math.min(endY2 - sourceY2, canvas.height - sourceY2);
+          const drawHeight2 = sourceHeight2 / pixelsPerPoint2;
+
           const pageCanvas2 = document.createElement('canvas');
           pageCanvas2.width = canvas.width;
           pageCanvas2.height = Math.ceil(sourceHeight2);
           const ctx2 = pageCanvas2.getContext('2d', { alpha: false });
-          
           if (ctx2) {
             ctx2.fillStyle = '#ffffff';
             ctx2.fillRect(0, 0, pageCanvas2.width, pageCanvas2.height);
             ctx2.imageSmoothingEnabled = true;
             ctx2.imageSmoothingQuality = 'high';
             ctx2.drawImage(canvas, 0, sourceY2, canvas.width, sourceHeight2, 0, 0, canvas.width, sourceHeight2);
-            
             const pageImgData2 = pageCanvas2.toDataURL('image/jpeg', q);
             const pageJpegImage2 = await pdfDoc2.embedJpg(await fetch(pageImgData2).then(r => r.arrayBuffer()));
             page.drawImage(pageJpegImage2, {
@@ -303,9 +335,7 @@ export async function exportToPdf(
               height: drawHeight2,
             });
           }
-          
           sourceY2 += sourceHeight2;
-          remainingHeight2 -= drawHeight2;
         }
       }
       
