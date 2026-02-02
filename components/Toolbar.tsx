@@ -26,10 +26,9 @@ import {
 import { useResume } from '@/context/ResumeContext';
 import { useLayout } from '@/context/LayoutContext';
 import { exportToDocx } from '@/utils/exportDocx';
-import { exportToPdf } from '@/utils/exportPdf';
+import { exportToPdf, printToPdf } from '@/utils/exportPdf';
 import { exportToPdfAts } from '@/utils/exportPdfAts';
 import SampleResumeDialog from '@/components/SampleResumeDialog';
-import ExportPdfDialog, { type ExportPdfWizardOptions } from '@/components/ExportPdfDialog';
 import {
   LINE_HEIGHT_OPTIONS,
   FONT_OPTIONS,
@@ -78,22 +77,20 @@ export default function Toolbar() {
   const [isExportingDocx, setIsExportingDocx] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isExportingPdfAts, setIsExportingPdfAts] = useState(false);
-  const [isExportingPdfWide, setIsExportingPdfWide] = useState(false);
   const [showMoreControls, setShowMoreControls] = useState(false);
   const [showSampleResume, setShowSampleResume] = useState(false);
-  const [exportPdfDialogMode, setExportPdfDialogMode] = useState<'fit' | 'normal' | null>(null);
 
   const baseName = resumeData.header.name.replace(/\s+/g, '_') || 'Resume';
 
-  const handleExportPdfFromWizard = async (_options: ExportPdfWizardOptions) => {
-    setIsExportingPdfWide(true);
+  const handleExportPdf = async () => {
+    setIsExportingPdf(true);
     try {
       await exportToPdf('resume-content', `${baseName}_Resume.pdf`, settings);
     } catch (error) {
       console.error('PDF export error:', error);
       alert('Failed to export PDF.');
     } finally {
-      setIsExportingPdfWide(false);
+      setIsExportingPdf(false);
     }
   };
 
@@ -260,19 +257,20 @@ export default function Toolbar() {
           {/* Export */}
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => setExportPdfDialogMode('fit')}
-              title="Export as PDF – wizard with page range and quality"
+              onClick={printToPdf}
+              title="Best quality · Browser print, then Save as PDF · Sharp vector text"
               className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-xs font-medium border border-indigo-700"
             >
               <FileDown size={14} />
-              Export PDF
+              Print PDF
             </button>
             <button
-              onClick={() => setExportPdfDialogMode('normal')}
-              title="Preview then export high-quality PDF"
-              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs font-medium"
+              onClick={handleExportPdf}
+              disabled={isExportingPdf}
+              title="High-quality PDF (no dialog) · Sharp, print-ready"
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-400 text-xs font-medium"
             >
-              <FileDown size={14} />
+              {isExportingPdf ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
               PDF
             </button>
             <button
@@ -560,14 +558,6 @@ export default function Toolbar() {
       <SampleResumeDialog 
         isOpen={showSampleResume} 
         onClose={() => setShowSampleResume(false)} 
-      />
-
-      {/* Export PDF Wizard – Word-style: page range, optimize for, preview, then export */}
-      <ExportPdfDialog
-        isOpen={exportPdfDialogMode !== null}
-        onClose={() => setExportPdfDialogMode(null)}
-        onExport={handleExportPdfFromWizard}
-        title="Export as PDF"
       />
     </div>
   );
