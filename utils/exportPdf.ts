@@ -142,9 +142,27 @@ export async function exportToPdf(
         }
       },
     });
-    
-    console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
-    console.log('Element dimensions:', element.scrollWidth, 'x', fullHeight);
+
+    // Cap canvas width so PDF stays ≤2MB (html2canvas may use devicePixelRatio and ignore width)
+    const targetCanvasWidth = contentWidthPx * scale;
+    let sourceCanvas = canvas;
+    if (canvas.width > targetCanvasWidth) {
+      const targetCanvasHeight = Math.round((canvas.height * targetCanvasWidth) / canvas.width);
+      const capped = document.createElement('canvas');
+      capped.width = targetCanvasWidth;
+      capped.height = targetCanvasHeight;
+      const ctx = capped.getContext('2d', { alpha: false });
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, capped.width, capped.height);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, capped.width, capped.height);
+      }
+      sourceCanvas = capped;
+    }
+
+    console.log('Canvas dimensions:', sourceCanvas.width, 'x', sourceCanvas.height);
 
     // Restore original display styles
     noPrintElements.forEach((el, index) => {
@@ -170,12 +188,11 @@ export async function exportToPdf(
     const pdfHeight = pageDim.height * mmToPoints;
     const marginPoints = marginMm * mmToPoints;
     const imgWidth = pdfWidth - (marginPoints * 2);
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    const imgHeight = (sourceCanvas.height * imgWidth) / sourceCanvas.width;
     const pageContentHeight = pdfHeight - (marginPoints * 2);
 
-    // Low quality keeps simple text resume ≤2MB; retries if still over
-    const jpegQuality = 0.48;
-    const imgData = canvas.toDataURL('image/jpeg', jpegQuality);
+    const jpegQuality = 0.38;
+    const imgData = sourceCanvas.toDataURL('image/jpeg', jpegQuality);
     const imgBytes = await fetch(imgData).then(res => res.arrayBuffer());
     const jpegImage = await pdfDoc.embedJpg(imgBytes);
 
@@ -194,7 +211,7 @@ export async function exportToPdf(
       let sourceY = 0;
       let pageNum = 0;
       
-      const pixelsPerPoint = canvas.width / imgWidth;
+      const pixelsPerPoint = sourceCanvas.width / imgWidth;
       
       while (remainingHeight > 0) {
         const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
@@ -202,26 +219,23 @@ export async function exportToPdf(
         const drawHeight = Math.min(pageContentHeight, remainingHeight);
         const sourceHeight = drawHeight * pixelsPerPoint;
 
-        // Create page canvas
         const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = canvas.width;
+        pageCanvas.width = sourceCanvas.width;
         pageCanvas.height = Math.ceil(sourceHeight);
 
         const ctx = pageCanvas.getContext('2d', { alpha: false });
         
         if (ctx) {
-          // Fill white background
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
-          
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(
-            canvas,
+            sourceCanvas,
             0, sourceY,
-            canvas.width, sourceHeight,
+            sourceCanvas.width, sourceHeight,
             0, 0,
-            canvas.width, sourceHeight
+            sourceCanvas.width, sourceHeight
           );
         }
 
@@ -250,10 +264,10 @@ export async function exportToPdf(
     
     if (pdfBytes.length > maxSizeBytes) {
       console.log(`PDF size ${(pdfBytes.length / 1024 / 1024).toFixed(2)}MB exceeds 2MB, reducing quality...`);
-      const lowerQualities = [0.42, 0.35, 0.28, 0.22];
+      const lowerQualities = [0.32, 0.26, 0.22, 0.18];
       for (const q of lowerQualities) {
         const pdfDoc2 = await PDFDocument.create();
-        const jpegImage2 = await pdfDoc2.embedJpg(await fetch(canvas.toDataURL('image/jpeg', q)).then(r => r.arrayBuffer()));
+        const jpegImage2 = await pdfDoc2.embedJpg(await fetch(sourceCanvas.toDataURL('image/jpeg', q)).then(r => r.arrayBuffer()));
       
       if (imgHeight <= pageContentHeight) {
         const page = pdfDoc2.addPage([pdfWidth, pdfHeight]);
@@ -267,7 +281,7 @@ export async function exportToPdf(
         // Recreate multi-page with lower quality
         let remainingHeight2 = imgHeight;
         let sourceY2 = 0;
-        const pixelsPerPoint2 = canvas.width / imgWidth;
+        const pixelsPerPoint2 = sourceCanvas.width / imgWidth;
         
         while (remainingHeight2 > 0) {
           const page = pdfDoc2.addPage([pdfWidth, pdfHeight]);
@@ -275,7 +289,7 @@ export async function exportToPdf(
           const sourceHeight2 = drawHeight2 * pixelsPerPoint2;
           
           const pageCanvas2 = document.createElement('canvas');
-          pageCanvas2.width = canvas.width;
+          pageCanvas2.width = sourceCanvas.width;
           pageCanvas2.height = Math.ceil(sourceHeight2);
           const ctx2 = pageCanvas2.getContext('2d', { alpha: false });
           
@@ -284,7 +298,7 @@ export async function exportToPdf(
             ctx2.fillRect(0, 0, pageCanvas2.width, pageCanvas2.height);
             ctx2.imageSmoothingEnabled = true;
             ctx2.imageSmoothingQuality = 'high';
-            ctx2.drawImage(canvas, 0, sourceY2, canvas.width, sourceHeight2, 0, 0, canvas.width, sourceHeight2);
+            ctx2.drawImage(sourceCanvas, 0, sourceY2, sourceCanvas.width, sourceHeight2, 0, 0, sourceCanvas.width, sourceHeight2);
             
             const pageImgData2 = pageCanvas2.toDataURL('image/jpeg', q);
             const pageJpegImage2 = await pdfDoc2.embedJpg(await fetch(pageImgData2).then(r => r.arrayBuffer()));
