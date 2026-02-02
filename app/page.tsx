@@ -17,6 +17,7 @@ import {
   ExperienceSection,
   EducationSection,
   ExpertiseSection,
+  CustomSectionsSection,
 } from '@/components/sections';
 import { ResumeData } from '@/types/resume';
 
@@ -95,6 +96,7 @@ function ResumeEditor({ onSwitchToUpload, onStartFromScratch }: { onSwitchToUplo
                 <ExperienceSection />
                 <EducationSection />
                 <ExpertiseSection />
+                <CustomSectionsSection />
               </div>
             </ResumeContainer>
           </article>
@@ -373,6 +375,7 @@ function MainContent() {
                 education: [],
                 forwardDeployedExpertise: '',
                 generalSections: [],
+                customSections: [],
                 sectionVisibility: {
                   expertise: false,
                   summary: true,

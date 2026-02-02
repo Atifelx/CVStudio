@@ -48,6 +48,37 @@ export interface GeneralSectionItem {
   summary: string;
 }
 
+/** Custom section content type */
+export type CustomSectionType = 'paragraph' | 'bullets' | 'items';
+
+/** Custom section: fully customizable section with title and flexible content */
+export interface CustomSection {
+  id: string;
+  title: string;           // Section title (e.g., "Hobbies", "Certifications", "Languages")
+  contentType: CustomSectionType;
+  content: string;         // For paragraph type
+  bullets: string[];       // For bullets type
+  items: Array<{           // For items type (e.g., certifications, languages)
+    label: string;
+    value: string;
+  }>;
+  order: number;           // Display order
+}
+
+// Preset section templates for quick adding
+export const CUSTOM_SECTION_PRESETS = [
+  { title: 'Certifications', contentType: 'items' as CustomSectionType, icon: 'award' },
+  { title: 'Languages', contentType: 'items' as CustomSectionType, icon: 'globe' },
+  { title: 'Hobbies & Interests', contentType: 'paragraph' as CustomSectionType, icon: 'heart' },
+  { title: 'Volunteer Experience', contentType: 'bullets' as CustomSectionType, icon: 'users' },
+  { title: 'Awards & Honors', contentType: 'bullets' as CustomSectionType, icon: 'trophy' },
+  { title: 'Publications', contentType: 'bullets' as CustomSectionType, icon: 'book' },
+  { title: 'Projects', contentType: 'bullets' as CustomSectionType, icon: 'folder' },
+  { title: 'Professional Memberships', contentType: 'items' as CustomSectionType, icon: 'briefcase' },
+  { title: 'References', contentType: 'paragraph' as CustomSectionType, icon: 'users' },
+  { title: 'Custom Section', contentType: 'paragraph' as CustomSectionType, icon: 'plus' },
+];
+
 // Section visibility settings - for optional/deletable sections
 export interface SectionVisibility {
   expertise: boolean;   // General Sections (optional block)
@@ -64,6 +95,7 @@ export interface ResumeData {
   education: EducationItem[];
   forwardDeployedExpertise: string;  // legacy; use generalSections
   generalSections: GeneralSectionItem[];
+  customSections: CustomSection[];   // New: fully customizable sections
   sectionVisibility: SectionVisibility;
 }
 
@@ -74,4 +106,5 @@ export type SectionType =
   | 'skills' 
   | 'experience' 
   | 'education' 
-  | 'expertise';
+  | 'expertise'
+  | 'custom';

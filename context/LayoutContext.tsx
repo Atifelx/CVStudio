@@ -16,6 +16,8 @@ import {
   VerticalSpacing,
   FontFamily,
   TemplateType,
+  ColorTheme,
+  COLOR_THEMES,
   PAGE_DIMENSIONS,
   MARGIN_VALUES,
 } from '@/types/layout';
@@ -43,6 +45,7 @@ interface LayoutContextType {
   setVerticalSpacing: (spacing: Partial<VerticalSpacing>) => void;
   setTargetPages: (pages: TargetPages) => void;
   setTemplate: (template: TemplateType) => void;
+  setColorTheme: (color: ColorTheme) => void;
   
   // Presets
   resetToDefaults: () => void;
@@ -124,6 +127,10 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
 
   const setTemplate = useCallback((template: TemplateType) => {
     setSettings((prev) => ({ ...prev, template }));
+  }, []);
+
+  const setColorTheme = useCallback((colorTheme: ColorTheme) => {
+    setSettings((prev) => ({ ...prev, colorTheme }));
   }, []);
 
   // Presets
@@ -314,6 +321,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         setVerticalSpacing,
         setTargetPages,
         setTemplate,
+        setColorTheme,
         resetToDefaults,
         applyCompactPreset,
         applyUltraCompactPreset,

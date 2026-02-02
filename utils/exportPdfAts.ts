@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont, RGB } from 'pdf-lib';
 import { ResumeData } from '@/types/resume';
-import { LayoutSettings, PAGE_DIMENSIONS, MARGIN_VALUES } from '@/types/layout';
+import { LayoutSettings, PAGE_DIMENSIONS, MARGIN_VALUES, COLOR_THEMES } from '@/types/layout';
 
 /**
  * ATS-Friendly PDF Export using pdf-lib
@@ -162,7 +162,7 @@ export async function exportToPdfAts(
   layoutSettings?: LayoutSettings
 ): Promise<void> {
   try {
-    const { header, summary, skills, experience, education, generalSections, sectionVisibility } = resumeData;
+    const { header, summary, skills, experience, education, generalSections, customSections, sectionVisibility } = resumeData;
     const settings = layoutSettings || ({} as LayoutSettings);
     const pageSize = settings.pageSize === 'letter' ? 'letter' : 'a4';
     const pageDim = PAGE_DIMENSIONS[pageSize];
@@ -190,13 +190,29 @@ export async function exportToPdfAts(
     // Template-specific settings
     const isClassic = settings.template === 'classic';
     
+    // Get color theme
+    const colorTheme = COLOR_THEMES.find(c => c.value === settings.colorTheme) || COLOR_THEMES[0];
+    
+    // Parse hex color to RGB
+    const hexToRgb = (hex: string): RGB => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      if (result) {
+        return rgb(
+          parseInt(result[1], 16) / 255,
+          parseInt(result[2], 16) / 255,
+          parseInt(result[3], 16) / 255
+        );
+      }
+      return rgb(30/255, 64/255, 175/255); // Default blue
+    };
+    
     // Colors
-    const blueColor = rgb(37/255, 99/255, 235/255);
+    const themeColor = hexToRgb(colorTheme.primary);
     const blackColor = rgb(0, 0, 0);
     const grayColor = rgb(80/255, 80/255, 80/255);
     
-    // Use black for classic template, blue for modern
-    const accentColor = isClassic ? blackColor : blueColor;
+    // Use black for classic template, theme color for modern
+    const accentColor = isClassic ? blackColor : themeColor;
 
     // Track current page and Y position
     let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -409,6 +425,33 @@ export async function exportToPdfAts(
           addText(section.summary);
         }
         addSpace(8);
+      });
+    }
+
+    // --- Custom Sections ---
+    if (customSections && customSections.length > 0) {
+      customSections.forEach((section) => {
+        if (!section.title.trim()) return;
+        
+        addSectionHeading(section.title);
+        
+        // Handle different content types
+        if (section.contentType === 'paragraph' && section.content.trim()) {
+          addText(section.content);
+        } else if (section.contentType === 'bullets') {
+          const validBullets = section.bullets.filter(b => b.trim());
+          validBullets.forEach((bullet) => {
+            addText(`* ${bullet}`);
+          });
+        } else if (section.contentType === 'items') {
+          const validItems = section.items.filter(i => i.label.trim());
+          validItems.forEach((item) => {
+            const itemText = item.value ? `${item.label} - ${item.value}` : item.label;
+            addText(itemText);
+          });
+        }
+        
+        addSpace(15);
       });
     }
 

@@ -51,17 +51,42 @@ export type FontFamily =
   | 'Roboto'           // Google font, clean
   | 'Source Sans Pro'; // Professional sans-serif
 
-export const FONT_OPTIONS: Array<{ value: FontFamily; label: string; category: 'serif' | 'sans-serif' }> = [
-  { value: 'Times New Roman', label: 'Times New Roman', category: 'serif' },
-  { value: 'Arial', label: 'Arial', category: 'sans-serif' },
-  { value: 'Calibri', label: 'Calibri', category: 'sans-serif' },
-  { value: 'Georgia', label: 'Georgia', category: 'serif' },
-  { value: 'Garamond', label: 'Garamond', category: 'serif' },
-  { value: 'Helvetica', label: 'Helvetica', category: 'sans-serif' },
-  { value: 'Lato', label: 'Lato', category: 'sans-serif' },
-  { value: 'Open Sans', label: 'Open Sans', category: 'sans-serif' },
-  { value: 'Roboto', label: 'Roboto', category: 'sans-serif' },
-  { value: 'Source Sans Pro', label: 'Source Sans Pro', category: 'sans-serif' },
+export const FONT_OPTIONS: Array<{ value: FontFamily; label: string; category: 'serif' | 'sans-serif'; recommended?: boolean; description?: string }> = [
+  // Top Recommended (ordered by recruiter preference)
+  { value: 'Calibri', label: 'Calibri', category: 'sans-serif', recommended: true, description: 'Most popular - clean & modern' },
+  { value: 'Arial', label: 'Arial', category: 'sans-serif', recommended: true, description: 'Universal - works everywhere' },
+  { value: 'Helvetica', label: 'Helvetica', category: 'sans-serif', recommended: true, description: 'Premium - executive look' },
+  { value: 'Georgia', label: 'Georgia', category: 'serif', recommended: true, description: 'Professional - screen optimized' },
+  { value: 'Garamond', label: 'Garamond', category: 'serif', recommended: true, description: 'Elegant - classic executive' },
+  // Classic Options
+  { value: 'Times New Roman', label: 'Times New Roman', category: 'serif', description: 'Traditional - formal industries' },
+  // Modern Web Fonts
+  { value: 'Lato', label: 'Lato', category: 'sans-serif', description: 'Modern - warm professional' },
+  { value: 'Open Sans', label: 'Open Sans', category: 'sans-serif', description: 'Neutral - highly readable' },
+  { value: 'Roboto', label: 'Roboto', category: 'sans-serif', description: 'Google - clean modern' },
+  { value: 'Source Sans Pro', label: 'Source Sans Pro', category: 'sans-serif', description: 'Adobe - professional' },
+];
+
+// Color themes for modern template
+export type ColorTheme = 
+  | 'blue'       // Default professional blue
+  | 'navy'       // Deep navy - corporate
+  | 'teal'       // Teal - creative professional
+  | 'green'      // Forest green - finance/consulting
+  | 'purple'     // Purple - creative industries
+  | 'maroon'     // Maroon/burgundy - executive
+  | 'charcoal'   // Dark gray - minimalist
+  | 'black';     // Pure black - classic
+
+export const COLOR_THEMES: Array<{ value: ColorTheme; label: string; primary: string; gradient: string; accent: string }> = [
+  { value: 'blue', label: 'Professional Blue', primary: '#1e40af', gradient: 'from-blue-900 to-blue-700', accent: 'blue-600' },
+  { value: 'navy', label: 'Corporate Navy', primary: '#1e3a5f', gradient: 'from-slate-900 to-slate-700', accent: 'slate-700' },
+  { value: 'teal', label: 'Modern Teal', primary: '#0f766e', gradient: 'from-teal-900 to-teal-700', accent: 'teal-600' },
+  { value: 'green', label: 'Forest Green', primary: '#166534', gradient: 'from-green-900 to-green-700', accent: 'green-600' },
+  { value: 'purple', label: 'Creative Purple', primary: '#6b21a8', gradient: 'from-purple-900 to-purple-700', accent: 'purple-600' },
+  { value: 'maroon', label: 'Executive Maroon', primary: '#7f1d1d', gradient: 'from-red-900 to-red-800', accent: 'red-800' },
+  { value: 'charcoal', label: 'Minimalist Gray', primary: '#374151', gradient: 'from-gray-800 to-gray-600', accent: 'gray-600' },
+  { value: 'black', label: 'Classic Black', primary: '#171717', gradient: 'from-neutral-900 to-neutral-800', accent: 'neutral-800' },
 ];
 
 export interface VerticalSpacing {
@@ -120,6 +145,7 @@ export interface LayoutSettings {
   verticalSpacing: VerticalSpacing;
   targetPages: TargetPages;
   template: TemplateType;
+  colorTheme: ColorTheme;
 }
 
 // DEFAULT: Standard resume formatting (11pt like MS Word)
@@ -135,6 +161,7 @@ export const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = {
   verticalSpacing: DEFAULT_VERTICAL_SPACING,
   targetPages: null,
   template: 'modern',
+  colorTheme: 'blue',
 };
 
 // COMPACT: Smaller text for fitting more content
@@ -149,6 +176,7 @@ export const COMPACT_LAYOUT_SETTINGS: LayoutSettings = {
   verticalSpacing: COMPACT_VERTICAL_SPACING,
   targetPages: null,
   template: 'modern',
+  colorTheme: 'blue',
 };
 
 // ULTRA COMPACT: Maximum density (9pt minimum readable)
@@ -163,6 +191,7 @@ export const ULTRA_COMPACT_SETTINGS: LayoutSettings = {
   verticalSpacing: ULTRA_COMPACT_SPACING,
   targetPages: 1,
   template: 'modern',
+  colorTheme: 'blue',
 };
 
 // BALANCED: Professional look (11pt standard)
@@ -177,4 +206,5 @@ export const BALANCED_LAYOUT_SETTINGS: LayoutSettings = {
   verticalSpacing: BALANCED_VERTICAL_SPACING,
   targetPages: null,
   template: 'modern',
+  colorTheme: 'blue',
 };

@@ -21,6 +21,7 @@ export const initialResumeData: ResumeData = {
   education: [],
   forwardDeployedExpertise: '',
   generalSections: [],
+  customSections: [],
   sectionVisibility: {
     expertise: false,
     summary: true,

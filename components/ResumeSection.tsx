@@ -3,6 +3,7 @@
 import React, { ReactNode } from 'react';
 import { Pencil } from 'lucide-react';
 import { useLayout } from '@/context/LayoutContext';
+import { COLOR_THEMES } from '@/types/layout';
 
 interface ResumeSectionProps {
   title?: string;
@@ -15,7 +16,7 @@ interface ResumeSectionProps {
 
 /**
  * Reusable wrapper component for resume sections
- * Supports both modern (blue) and classic (B&W) templates
+ * Supports both modern (with color themes) and classic (B&W) templates
  */
 export default function ResumeSection({
   title,
@@ -27,6 +28,7 @@ export default function ResumeSection({
 }: ResumeSectionProps) {
   const { settings } = useLayout();
   const isClassic = settings.template === 'classic';
+  const colorTheme = COLOR_THEMES.find(c => c.value === settings.colorTheme) || COLOR_THEMES[0];
 
   return (
     <div className={`relative group ${className}`}>
@@ -36,9 +38,13 @@ export default function ResumeSection({
           className={`flex items-center justify-between ${
             isClassic 
               ? 'border-b border-gray-400' 
-              : 'border-b-2 border-blue-600'
+              : `border-b-2`
           }`}
-          style={{ marginBottom: 'var(--resume-header-gap)', paddingBottom: 'calc(var(--resume-header-gap) / 2)' }}
+          style={{ 
+            marginBottom: 'var(--resume-header-gap)', 
+            paddingBottom: 'calc(var(--resume-header-gap) / 2)',
+            borderColor: isClassic ? undefined : colorTheme.primary,
+          }}
         >
           {/* Classic template: centered title with horizontal lines */}
           {isClassic ? (
@@ -54,8 +60,11 @@ export default function ResumeSection({
             </div>
           ) : (
             <h3 
-              className="font-bold text-blue-600 flex-1"
-              style={{ fontSize: 'calc(var(--resume-font-size) * 1.4)' }}
+              className="font-bold flex-1"
+              style={{ 
+                fontSize: 'calc(var(--resume-font-size) * 1.4)',
+                color: colorTheme.primary,
+              }}
             >
               {title}
             </h3>
