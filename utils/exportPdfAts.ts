@@ -206,13 +206,14 @@ export async function exportToPdfAts(
       return rgb(30/255, 64/255, 175/255); // Default blue
     };
     
-    // Colors
-    const themeColor = hexToRgb(colorTheme.primary);
+    // Colors – for light themes use titleColor (dark) so section titles have contrast on white
+    const sectionTitleHex = colorTheme.titleColor || colorTheme.primary;
+    const accentColorRgb = hexToRgb(sectionTitleHex);
     const blackColor = rgb(0, 0, 0);
     const grayColor = rgb(80/255, 80/255, 80/255);
     
-    // Use black for classic template, theme color for modern
-    const accentColor = isClassic ? blackColor : themeColor;
+    // Use black for classic template; for modern use dark section title color (fixes light theme contrast)
+    const accentColor = isClassic ? blackColor : accentColorRgb;
 
     // Track current page and Y position
     let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);

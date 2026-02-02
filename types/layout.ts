@@ -83,7 +83,7 @@ export type ColorTheme =
   | 'lightblue'  // Light blue - soft professional
   | 'silver';    // Silver - neutral light
 
-export const COLOR_THEMES: Array<{ value: ColorTheme; label: string; primary: string; gradient: string; accent: string; light?: boolean }> = [
+export const COLOR_THEMES: Array<{ value: ColorTheme; label: string; primary: string; gradient: string; accent: string; light?: boolean; /** Dark color for section titles on white background when light theme */ titleColor?: string }> = [
   // Rich Professional (dark header, white text)
   { value: 'charcoal', label: 'Charcoal', primary: '#2d3748', gradient: 'from-gray-800 to-gray-700', accent: 'gray-700' },
   { value: 'black', label: 'Black', primary: '#1a1a1a', gradient: 'from-black to-gray-900', accent: 'gray-900' },
@@ -93,10 +93,10 @@ export const COLOR_THEMES: Array<{ value: ColorTheme; label: string; primary: st
   { value: 'steel', label: 'Steel', primary: '#334155', gradient: 'from-slate-800 to-slate-700', accent: 'slate-700' },
   { value: 'midnight', label: 'Midnight', primary: '#0f172a', gradient: 'from-slate-950 to-slate-900', accent: 'slate-900' },
   { value: 'espresso', label: 'Espresso', primary: '#292524', gradient: 'from-stone-800 to-stone-700', accent: 'stone-700' },
-  // Light colors (light header, dark text)
-  { value: 'lightgrey', label: 'Light Grey', primary: '#e5e7eb', gradient: 'from-gray-200 to-gray-100', accent: 'gray-500', light: true },
-  { value: 'lightblue', label: 'Light Blue', primary: '#dbeafe', gradient: 'from-blue-100 to-blue-50', accent: 'blue-600', light: true },
-  { value: 'silver', label: 'Silver', primary: '#f1f5f9', gradient: 'from-slate-200 to-slate-100', accent: 'slate-600', light: true },
+  // Light colors (light header, dark text) – titleColor = dark for section titles on white
+  { value: 'lightgrey', label: 'Light Grey', primary: '#e5e7eb', gradient: 'from-gray-200 to-gray-100', accent: 'gray-500', light: true, titleColor: '#4b5563' },
+  { value: 'lightblue', label: 'Light Blue', primary: '#dbeafe', gradient: 'from-blue-100 to-blue-50', accent: 'blue-600', light: true, titleColor: '#2563eb' },
+  { value: 'silver', label: 'Silver', primary: '#f1f5f9', gradient: 'from-slate-200 to-slate-100', accent: 'slate-600', light: true, titleColor: '#475569' },
 ];
 
 export interface VerticalSpacing {

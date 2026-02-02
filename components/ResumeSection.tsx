@@ -32,6 +32,8 @@ export default function ResumeSection({
   const { settings } = useLayout();
   const isClassic = settings.template === 'classic';
   const colorTheme = COLOR_THEMES.find(c => c.value === settings.colorTheme) || COLOR_THEMES[0];
+  // For light themes, section titles sit on white – use dark titleColor for contrast
+  const sectionColor = colorTheme.titleColor || colorTheme.primary;
 
   return (
     <div className={`relative group ${className}`}>
@@ -46,7 +48,7 @@ export default function ResumeSection({
           style={{ 
             marginBottom: 'var(--resume-header-gap)', 
             paddingBottom: 'calc(var(--resume-header-gap) / 2)',
-            borderColor: isClassic ? undefined : colorTheme.primary,
+            borderColor: isClassic ? undefined : sectionColor,
           }}
         >
           {/* Classic template: centered title with horizontal lines */}
@@ -66,7 +68,7 @@ export default function ResumeSection({
               className="font-bold flex-1"
               style={{ 
                 fontSize: 'calc(var(--resume-font-size) * 1.4)',
-                color: colorTheme.primary,
+                color: sectionColor,
               }}
             >
               {title}
