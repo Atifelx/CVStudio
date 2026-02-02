@@ -218,10 +218,10 @@ export async function exportToPdfAts(
     const blackColor = rgb(0, 0, 0);
     const grayColor = rgb(80/255, 80/255, 80/255);
     
-    // Use black for classic template; for modern use dark section title color (fixes light theme contrast)
     const accentColor = isClassic ? blackColor : accentColorRgb;
+    const primaryRgb = hexToRgb(colorTheme.primary);
+    const whiteColor = rgb(1, 1, 1);
 
-    // Track current page and Y position
     let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
     let y = pageHeight - margin;
 
@@ -293,17 +293,45 @@ export async function exportToPdfAts(
       }
     };
 
-    // --- Header ---
+    // Draw horizontal line (mirror app UI: section borders, header separator)
+    const addHorizontalLine = (lineColor: RGB = grayColor, lineThickness: number = 1): void => {
+      const lineY = y - 2;
+      currentPage.drawLine({
+        start: { x: margin, y: lineY },
+        end: { x: pageWidth - margin, y: lineY },
+        thickness: lineThickness,
+        color: lineColor,
+      });
+      y -= 2 + lineThickness + 2;
+    };
+
+    // --- Header (modern: colored bar behind like app; classic: plain) ---
+    const headerYStart = y;
+    if (!isClassic) {
+      const headerBarHeight = (nameSize + lineHeight * 6 + 25);
+      checkNewPage(headerBarHeight);
+      currentPage.drawRectangle({
+        x: margin,
+        y: y - headerBarHeight,
+        width: contentWidth,
+        height: headerBarHeight,
+        color: primaryRgb,
+      });
+    }
+    const isLightTheme = colorTheme.light === true;
+    const headerTextColor = isClassic ? accentColor : (isLightTheme ? blackColor : whiteColor);
+    const headerSubColor = isClassic ? grayColor : (isLightTheme ? grayColor : rgb(0.95, 0.95, 0.95));
+
     if (header.name) {
-      addText(header.name, { fontSize: nameSize, bold: true, color: accentColor, align: 'center' });
+      addText(header.name, { fontSize: nameSize, bold: true, color: headerTextColor, align: 'center' });
       addSpace(3);
     }
-    
+
     if (header.title) {
-      addText(header.title, { fontSize: Math.round(baseFontSize * 1.1), color: isClassic ? grayColor : blackColor, align: 'center' });
+      addText(header.title, { fontSize: Math.round(baseFontSize * 1.1), color: headerSubColor, align: 'center' });
       addSpace(5);
     }
-    
+
     // Contact information - classic uses diamond separators
     const separator = isClassic ? ' * ' : ' | ';
     
@@ -318,39 +346,38 @@ export async function exportToPdfAts(
         const links = [header.contact.linkedin, header.contact.github].filter(Boolean).join(separator);
         if (links) addText(links, { align: 'center' });
       } else {
-        if (contactLine1) addText(contactLine1, { align: 'center' });
-        if (contactLine2) addText(contactLine2, { align: 'center' });
+        if (contactLine1) addText(contactLine1, { align: 'center', color: headerSubColor });
+        if (contactLine2) addText(contactLine2, { align: 'center', color: headerSubColor });
       }
     }
-    
-    // Location and work authorization on one line (modern only - classic includes in contact)
+
     if (!isClassic && header.contact.location) {
       const locationParts = [header.contact.location, header.contact.workAuthorization].filter(Boolean);
       if (locationParts.length > 0) {
-        addText(`Location: ${locationParts.join(' | ')}`, { align: 'center' });
+        addText(`Location: ${locationParts.join(' | ')}`, { align: 'center', color: headerSubColor });
       }
     }
-    
-    // Relocation on separate line if exists
+
     if (header.contact.relocation || header.contact.travel) {
       const relocationParts = [header.contact.relocation, header.contact.travel].filter(Boolean);
       if (relocationParts.length > 0) {
-        addText(`${isClassic ? 'Open to: ' : 'Relocation: '}${relocationParts.join(separator)}`, { align: 'center' });
+        addText(`${isClassic ? 'Open to: ' : 'Relocation: '}${relocationParts.join(separator)}`, { align: 'center', color: headerSubColor });
       }
     }
-    
-    addSpace(15);
 
-    // Helper to add section heading (centered for classic, left for modern)
+    // Line under header (same as app: border under contact block)
+    addHorizontalLine(grayColor, 1);
+    addSpace(10);
+
+    // Section heading: title + line under it (mirror app border-b under section title)
     const addSectionHeading = (title: string): void => {
       if (isClassic) {
-        // Classic template: centered title (uppercase with tracking)
         addText(title.toUpperCase(), { fontSize: headingSize, bold: true, color: accentColor, align: 'center' });
       } else {
-        // Modern template: left-aligned blue title
         addText(title.toUpperCase(), { fontSize: headingSize, bold: true, color: accentColor });
       }
-      addSpace(5);
+      addHorizontalLine(isClassic ? grayColor : accentColorRgb, isClassic ? 1 : 2);
+      addSpace(3);
     };
 
     // --- Professional Summary ---
