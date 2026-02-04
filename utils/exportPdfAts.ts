@@ -9,7 +9,7 @@ import { LayoutSettings, getPageDimensions, MARGIN_VALUES } from '@/types/layout
  * and extract keywords from this format. Use this for job applications.
  *
  * Uses pdf-lib instead of jsPDF to avoid text corruption issues.
- * Restored from commit 662b5c70 with horizontal lines between sections.
+ * Restored from commit 662b5c70 (text only, no horizontal lines).
  */
 
 const DEFAULT_MARGIN_MM = 12;
@@ -158,7 +158,6 @@ export async function exportToPdfAts(
 
     const blueColor = rgb(37 / 255, 99 / 255, 235 / 255);
     const blackColor = rgb(0, 0, 0);
-    const grayColor = rgb(100 / 255, 100 / 255, 100 / 255);
 
     let currentPage = pdfDoc.addPage([pageWidth, pageHeight]);
     let y = pageHeight - margin;
@@ -224,18 +223,6 @@ export async function exportToPdfAts(
       }
     };
 
-    /** Horizontal plain line between sections (standard resume formatting) */
-    const addHorizontalLine = (): void => {
-      const lineY = y - 3;
-      currentPage.drawLine({
-        start: { x: margin, y: lineY },
-        end: { x: pageWidth - margin, y: lineY },
-        thickness: 1,
-        color: grayColor,
-      });
-      y -= 6;
-    };
-
     // --- Header ---
     if (header.name) {
       addText(header.name, { fontSize: nameSize, bold: true, color: blueColor, align: 'center' });
@@ -268,15 +255,11 @@ export async function exportToPdfAts(
       }
     }
 
-    addSpace(10);
-    addHorizontalLine();
-    addSpace(12);
+    addSpace(15);
 
     // --- Professional Summary ---
     if (sectionVisibility?.summary !== false && summary) {
       addText('PROFESSIONAL SUMMARY', { fontSize: headingSize, bold: true, color: blueColor });
-      addSpace(3);
-      addHorizontalLine();
       addSpace(5);
       addText(summary);
       addSpace(15);
@@ -285,8 +268,6 @@ export async function exportToPdfAts(
     // --- Technical Skills ---
     if (sectionVisibility?.skills !== false && skills.length > 0) {
       addText('TECHNICAL SKILLS', { fontSize: headingSize, bold: true, color: blueColor });
-      addSpace(3);
-      addHorizontalLine();
       addSpace(5);
       skills.forEach((s) => {
         addText(`${s.category}: ${s.skills}`, { isSkills: true });
@@ -297,8 +278,6 @@ export async function exportToPdfAts(
     // --- Professional Experience ---
     if (experience.length > 0) {
       addText('PROFESSIONAL EXPERIENCE', { fontSize: headingSize, bold: true, color: blueColor });
-      addSpace(3);
-      addHorizontalLine();
       addSpace(5);
 
       experience.forEach((exp, idx) => {
@@ -346,8 +325,6 @@ export async function exportToPdfAts(
     // --- General Sections ---
     if (sectionVisibility?.expertise && generalSections.length > 0) {
       addText('ADDITIONAL INFORMATION', { fontSize: headingSize, bold: true, color: blueColor });
-      addSpace(3);
-      addHorizontalLine();
       addSpace(5);
       generalSections.forEach((section) => {
         if (section.title.trim()) {
