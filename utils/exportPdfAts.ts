@@ -1,18 +1,29 @@
 import { PDFDocument, rgb, StandardFonts, PDFFont, RGB } from 'pdf-lib';
 import { ResumeData } from '@/types/resume';
 import { LayoutSettings, getPageDimensions, MARGIN_VALUES } from '@/types/layout';
+import type { FontFamily } from '@/types/layout';
 
 /**
  * ATS-Friendly PDF Export using pdf-lib
  *
  * Produces a **text-based PDF** (native text, no images). ATS systems can parse
- * and extract keywords from this format. Use this for job applications.
- *
- * Uses pdf-lib instead of jsPDF to avoid text corruption issues.
- * Restored from commit 662b5c70 (text only, no horizontal lines).
+ * and extract keywords from this format. Respects user font family and size.
  */
 
 const DEFAULT_MARGIN_MM = 12;
+
+/** Standard bullet character for list items (kept in sanitize for PDF). */
+const BULLET = '\u2022';
+
+/** Map app font to PDF standard fonts (pdf-lib only supports StandardFonts). */
+function getStandardFonts(fontFamily: FontFamily | undefined): { regular: StandardFonts; bold: StandardFonts } {
+  const serif = ['Times New Roman', 'Georgia', 'Garamond'];
+  const f = fontFamily || 'Calibri';
+  if (serif.includes(f)) {
+    return { regular: StandardFonts.TimesRoman, bold: StandardFonts.TimesRomanBold };
+  }
+  return { regular: StandardFonts.Helvetica, bold: StandardFonts.HelveticaBold };
+}
 
 // Convert mm to points (1 mm = 2.83465 points)
 const mmToPoints = (mm: number) => mm * 2.83465;
@@ -28,11 +39,11 @@ function sanitizeText(text: string): string {
     .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
     .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
     .replace(/[\u2013\u2014]/g, '-')
-    .replace(/[\u2022\u2023\u2043\u204C\u204D]/g, '*')
+    .replace(/[\u2023\u2043\u204C\u204D]/g, BULLET)
     .replace(/\u2026/g, '...')
     .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
     .replace(/\u00A0/g, ' ')
-    .replace(/[^\x20-\x7E\u00C0-\u00FF]/g, ' ')
+    .replace(/[^\x20-\x7E\u00C0-\u00FF\u2022]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -75,59 +86,15 @@ function wrapText(
 }
 
 /**
- * Wrap skills text - tries to keep on one line, reduces font size if needed
+ * Wrap skills text at same font size as body (no shrinking – keeps font consistent).
  */
 function wrapSkillsText(
   text: string,
   font: PDFFont,
   fontSize: number,
   contentWidth: number
-): { lines: string[]; fontSize: number } {
-  const sanitized = sanitizeText(text);
-  if (!sanitized) return { lines: [], fontSize };
-
-  let currentFontSize = fontSize;
-  let fullWidth = font.widthOfTextAtSize(sanitized, currentFontSize);
-
-  if (fullWidth <= contentWidth) {
-    return { lines: [sanitized], fontSize: currentFontSize };
-  }
-
-  const minFontSize = 8;
-  let adjustedFontSize = currentFontSize;
-
-  while (adjustedFontSize > minFontSize && fullWidth > contentWidth) {
-    adjustedFontSize -= 0.5;
-    fullWidth = font.widthOfTextAtSize(sanitized, adjustedFontSize);
-    if (fullWidth <= contentWidth) {
-      return { lines: [sanitized], fontSize: adjustedFontSize };
-    }
-  }
-
-  if (sanitized.includes('|')) {
-    const skills = sanitized.split('|').map((s) => s.trim());
-    const lines: string[] = [];
-    let currentLine = '';
-
-    for (let i = 0; i < skills.length; i++) {
-      const skill = skills[i];
-      const separator = i > 0 ? ' | ' : '';
-      const testLine = currentLine ? `${currentLine}${separator}${skill}` : skill;
-      const width = font.widthOfTextAtSize(testLine, adjustedFontSize);
-
-      if (width <= contentWidth) {
-        currentLine = testLine;
-      } else {
-        if (currentLine) lines.push(currentLine);
-        currentLine = skill;
-      }
-    }
-    if (currentLine) lines.push(currentLine);
-    return { lines: lines.length > 0 ? lines : [sanitized], fontSize: adjustedFontSize };
-  }
-
-  const wrappedLines = wrapText(sanitized, font, adjustedFontSize, contentWidth);
-  return { lines: wrappedLines, fontSize: adjustedFontSize };
+): string[] {
+  return wrapText(text, font, fontSize, contentWidth);
 }
 
 export async function exportToPdfAts(
@@ -143,8 +110,9 @@ export async function exportToPdfAts(
 
     const pdfDoc = await PDFDocument.create();
 
-    const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const { regular: regularFontKey, bold: boldFontKey } = getStandardFonts(settings.fontFamily);
+    const fontRegular = await pdfDoc.embedFont(regularFontKey);
+    const fontBold = await pdfDoc.embedFont(boldFontKey);
 
     const pageWidth = mmToPoints(pageDim.width);
     const pageHeight = mmToPoints(pageDim.height);
@@ -184,14 +152,9 @@ export async function exportToPdfAts(
       const color = options.color || blackColor;
       const align = options.align || 'left';
 
-      let lines: string[];
-      if (options.isSkills) {
-        const result = wrapSkillsText(text, font, fontSize, contentWidth);
-        lines = result.lines;
-        fontSize = result.fontSize;
-      } else {
-        lines = wrapText(text, font, fontSize, contentWidth);
-      }
+      const lines = options.isSkills
+        ? wrapSkillsText(text, font, fontSize, contentWidth)
+        : wrapText(text, font, fontSize, contentWidth);
 
       if (lines.length === 0) return;
 
@@ -294,14 +257,14 @@ export async function exportToPdfAts(
         if (exp.description) addText(exp.description);
 
         exp.bullets.forEach((bullet) => {
-          addText(`* ${bullet}`);
+          addText(`${BULLET} ${bullet}`);
         });
 
         if (exp.achievements?.length) {
           addSpace(5);
           addText('Key Achievements:', { bold: true });
           exp.achievements.forEach((achievement) => {
-            addText(`* ${achievement}`);
+            addText(`${BULLET} ${achievement}`);
           });
         }
       });

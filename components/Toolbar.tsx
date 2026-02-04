@@ -235,45 +235,43 @@ export default function Toolbar() {
             </button>
           </div>
 
-          {/* Page Breaks */}
+          {/* Page Breaks toggle (shows/hides red break lines) */}
           <button
             onClick={() => setShowPageBreaks(!showPageBreaks)}
             className={`px-2 py-1 text-xs rounded ${showPageBreaks ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}`}
+            title="Show or hide page break lines on the resume"
           >
             {showPageBreaks ? <Eye size={12} className="inline mr-1" /> : <EyeOff size={12} className="inline mr-1" />}
             Breaks
           </button>
 
-          {/* Line break buffer & section start (when Breaks visible) */}
-          {showPageBreaks && (
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-600 whitespace-nowrap">Space before break:</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={5}
-                  step={1}
-                  value={Math.max(0, Math.min(5, settings.pageBreakBufferLines ?? 2))}
-                  onChange={(e) => setPageBreakBufferLines(Number(e.target.value))}
-                  title="Leave this many blank lines before each page break so bullets don't get cut"
-                  className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
-                <span className="text-xs font-medium text-gray-700 w-5">
-                  {Math.max(0, Math.min(5, settings.pageBreakBufferLines ?? 2))}
-                </span>
-              </div>
-              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={settings.sectionStartNewPage !== false}
-                  onChange={(e) => setSectionStartNewPage(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                Start sections on new page
-              </label>
+          {/* Page break options – always visible so export PDF respects them */}
+          <div className="flex items-center gap-3 flex-wrap border-l border-gray-200 pl-3 ml-1">
+            <div className="flex items-center gap-2" title="Leave this many blank lines before each page break so bullets don't get cut (affects export PDF)">
+              <span className="text-xs text-gray-600 whitespace-nowrap">Space before break:</span>
+              <input
+                type="range"
+                min={0}
+                max={5}
+                step={1}
+                value={Math.max(0, Math.min(5, settings.pageBreakBufferLines ?? 2))}
+                onChange={(e) => setPageBreakBufferLines(Number(e.target.value))}
+                className="w-24 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
+              <span className="text-xs font-medium text-gray-700 w-5 tabular-nums">
+                {Math.max(0, Math.min(5, settings.pageBreakBufferLines ?? 2))}
+              </span>
             </div>
-          )}
+            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer" title="When a section would start near a page break, start it on the next page (Print PDF & preview)">
+              <input
+                type="checkbox"
+                checked={settings.sectionStartNewPage !== false}
+                onChange={(e) => setSectionStartNewPage(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              Start sections on new page
+            </label>
+          </div>
 
           {/* Print settings (affects browser Print → PDF) */}
           <div className="flex items-center gap-3 flex-wrap">

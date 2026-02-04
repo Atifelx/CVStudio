@@ -44,6 +44,8 @@ export async function exportToPdf(
     colorTheme: 'blue',
     printCompact: true,
     printOrientation: 'portrait',
+    pageBreakBufferLines: 2,
+    sectionStartNewPage: true,
   };
 
   try {
@@ -154,6 +156,12 @@ export async function exportToPdf(
     const imgHeight = (canvas.height * imgWidth) / canvas.width;
     const pageContentHeight = pdfHeight - (marginPoints * 2);
 
+    // Respect page break buffer: leave N lines at bottom of each page so bullets don't get cut (matches Toolbar setting)
+    const bufferLines = Math.max(0, Math.min(5, settings.pageBreakBufferLines ?? 2));
+    const lineHeightPt = settings.fontSize * settings.lineHeight;
+    const bufferPoints = bufferLines * lineHeightPt;
+    const effectivePageContentHeight = Math.max(pageContentHeight * 0.5, pageContentHeight - bufferPoints);
+
     // Convert canvas to JPEG image data (smaller file size than PNG)
     // Use JPEG quality 0.85 for good quality but smaller size
     const imgData = canvas.toDataURL('image/jpeg', 0.85);
@@ -170,14 +178,14 @@ export async function exportToPdf(
         height: imgHeight,
       });
     } else {
-      // Multi-page
+      // Multi-page: use effective height (with buffer) so content doesn't get cut mid-bullet
       let remainingHeight = imgHeight;
       let sourceY = 0;
       const pixelsPerPoint = canvas.width / imgWidth;
 
       while (remainingHeight > 0) {
         const page = pdfDoc.addPage([pdfWidth, pdfHeight]);
-        const drawHeight = Math.min(pageContentHeight, remainingHeight);
+        const drawHeight = Math.min(effectivePageContentHeight, remainingHeight);
         const sourceHeight = drawHeight * pixelsPerPoint;
 
         // Create page canvas
@@ -246,14 +254,14 @@ export async function exportToPdf(
           height: imgHeight,
         });
       } else {
-        // Recreate multi-page with lower quality
+        // Recreate multi-page with lower quality (still use buffer)
         let remainingHeight2 = imgHeight;
         let sourceY2 = 0;
         const pixelsPerPoint2 = canvas.width / imgWidth;
 
         while (remainingHeight2 > 0) {
           const page = pdfDoc2.addPage([pdfWidth, pdfHeight]);
-          const drawHeight2 = Math.min(pageContentHeight, remainingHeight2);
+          const drawHeight2 = Math.min(effectivePageContentHeight, remainingHeight2);
           const sourceHeight2 = drawHeight2 * pixelsPerPoint2;
           const pageCanvas2 = document.createElement('canvas');
           pageCanvas2.width = canvas.width;
@@ -286,7 +294,8 @@ export async function exportToPdf(
 
     const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
     const fileSizeMB = (blob.size / 1024 / 1024).toFixed(2);
-    console.log(`PDF exported successfully: ${fileSizeMB}MB, ${Math.ceil(imgHeight / pageContentHeight)} pages`);
+    const pageCountEst = imgHeight <= pageContentHeight ? 1 : Math.ceil(imgHeight / effectivePageContentHeight);
+    console.log(`PDF exported successfully: ${fileSizeMB}MB, ${pageCountEst} pages (buffer ${bufferLines} lines)`);
 
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
