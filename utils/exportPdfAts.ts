@@ -311,8 +311,6 @@ export async function exportToPdfAts(
     // --- Education ---
     if (sectionVisibility?.education !== false && education.length > 0) {
       addText('EDUCATION', { fontSize: headingSize, bold: true, color: blueColor });
-      addSpace(3);
-      addHorizontalLine();
       addSpace(5);
       education.forEach((edu) => {
         if (edu.degree) addText(edu.degree, { bold: true });

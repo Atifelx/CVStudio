@@ -73,6 +73,8 @@ export default function Toolbar() {
     pageInfo,
     showPageBreaks,
     setShowPageBreaks,
+    setPageBreakBufferLines,
+    setSectionStartNewPage,
   } = useLayout();
 
   const [isExportingDocx, setIsExportingDocx] = useState(false);
@@ -241,6 +243,37 @@ export default function Toolbar() {
             {showPageBreaks ? <Eye size={12} className="inline mr-1" /> : <EyeOff size={12} className="inline mr-1" />}
             Breaks
           </button>
+
+          {/* Line break buffer & section start (when Breaks visible) */}
+          {showPageBreaks && (
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-600 whitespace-nowrap">Space before break:</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={5}
+                  step={1}
+                  value={Math.max(0, Math.min(5, settings.pageBreakBufferLines ?? 2))}
+                  onChange={(e) => setPageBreakBufferLines(Number(e.target.value))}
+                  title="Leave this many blank lines before each page break so bullets don't get cut"
+                  className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                />
+                <span className="text-xs font-medium text-gray-700 w-5">
+                  {Math.max(0, Math.min(5, settings.pageBreakBufferLines ?? 2))}
+                </span>
+              </div>
+              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.sectionStartNewPage !== false}
+                  onChange={(e) => setSectionStartNewPage(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                Start sections on new page
+              </label>
+            </div>
+          )}
 
           {/* Print settings (affects browser Print → PDF) */}
           <div className="flex items-center gap-3 flex-wrap">

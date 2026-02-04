@@ -111,7 +111,7 @@ export default function SkillsSection() {
   // Edit mode
   if (isEditing) {
     return (
-      <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+      <div className="resume-section px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
         <div className="border border-blue-200 rounded-lg overflow-hidden">
           <div className="bg-blue-50 px-4 py-3 flex items-center justify-between border-b border-blue-200">
             <h3 className="font-semibold text-blue-800">Edit: Technical Skills</h3>
@@ -189,7 +189,7 @@ export default function SkillsSection() {
   // Empty state
   if (skills.length === 0) {
     return (
-      <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+      <div className="resume-section px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
         <div 
           onClick={handleEdit}
           className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
@@ -204,7 +204,7 @@ export default function SkillsSection() {
 
   // Normal view
   return (
-    <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+    <div className="resume-section px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection 
         title={isClassic ? "Skills" : "TECHNICAL SKILLS"} 
         onEdit={handleEdit}

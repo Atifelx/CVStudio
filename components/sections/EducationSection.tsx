@@ -100,7 +100,7 @@ export default function EducationSection() {
 
   if (isEditing) {
     return (
-      <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+      <div className="resume-section px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
         <div className="border border-blue-200 rounded-lg overflow-hidden">
           {/* Header with Delete button */}
           <div className="bg-blue-50 px-4 py-3 flex items-center justify-between border-b border-blue-200">
@@ -186,7 +186,7 @@ export default function EducationSection() {
   }
 
   return (
-    <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+    <div className="resume-section px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection 
         title={isClassic ? "Education" : "EDUCATION"} 
         onEdit={handleEdit}

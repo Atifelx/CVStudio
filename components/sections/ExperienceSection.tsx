@@ -158,7 +158,7 @@ export default function ExperienceSection() {
   // Edit mode
   if (isEditing) {
     return (
-      <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+      <div className="resume-section px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
         <EditSection onSave={handleSave} onCancel={handleCancel} title="Professional Experience">
           <div className="space-y-6">
             <button
@@ -295,7 +295,7 @@ export default function ExperienceSection() {
   // Empty state
   if (experience.length === 0) {
     return (
-      <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+      <div className="resume-section px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
         <div 
           onClick={handleEdit}
           className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all"
@@ -310,7 +310,7 @@ export default function ExperienceSection() {
 
   // Normal view
   return (
-    <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+    <div className="resume-section px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection title={isClassic ? "Experience" : "PROFESSIONAL EXPERIENCE"} onEdit={handleEdit} isEditing={isEditing}>
         {experience.map((exp, index) => (
           <ExperienceEntry

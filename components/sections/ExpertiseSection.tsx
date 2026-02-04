@@ -93,7 +93,7 @@ export default function ExpertiseSection() {
 
   if (isEditing) {
     return (
-      <div className="px-8 pb-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+      <div className="resume-section px-8 pb-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
         <div className="border border-blue-200 rounded-lg overflow-hidden">
           <div className="bg-blue-50 px-4 py-3 flex items-center justify-between border-b border-blue-200">
             <h3 className="font-semibold text-blue-800">Edit: General Sections</h3>
@@ -167,7 +167,7 @@ export default function ExpertiseSection() {
   }
 
   return (
-    <div className="px-8 pb-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+    <div className="resume-section px-8 pb-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection title="GENERAL SECTIONS" onEdit={handleEdit} isEditing={isEditing}>
         {generalSections
           .filter((s) => s.title.trim() || s.summary.trim())

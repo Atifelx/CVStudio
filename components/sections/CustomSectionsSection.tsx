@@ -387,7 +387,7 @@ export default function CustomSectionsSection() {
   return (
     <>
       {customSections.map((section) => (
-        <div key={section.id} className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+        <div key={section.id} className="resume-section px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
           <ResumeSection 
             title={isClassic ? section.title : section.title.toUpperCase()} 
             onEdit={() => handleEdit(section.id)}

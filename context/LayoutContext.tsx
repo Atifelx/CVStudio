@@ -31,7 +31,12 @@ export interface PageInfo {
   isOverLimit: boolean;
   contentHeight: number;
   pageHeight: number;
+  /** Full usable height per page (px). */
   usableHeight: number;
+  /** Usable height minus buffer (used for break positions so content doesn't get cut). */
+  effectiveUsableHeight: number;
+  /** Buffer in px (lines × lineHeight) left before each page break. */
+  pageBreakBufferPx: number;
   pageBreakPositions: number[];
 }
 
@@ -53,7 +58,9 @@ interface LayoutContextType {
   setColorTheme: (color: ColorTheme) => void;
   setPrintCompact: (v: boolean) => void;
   setPrintOrientation: (v: PrintOrientation) => void;
-  
+  setPageBreakBufferLines: (lines: number) => void;
+  setSectionStartNewPage: (v: boolean) => void;
+
   // Presets
   resetToDefaults: () => void;
   applyCompactPreset: () => void;
@@ -83,6 +90,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
     contentHeight: 0,
     pageHeight: 297,
     usableHeight: 247,
+    effectiveUsableHeight: 247,
+    pageBreakBufferPx: 0,
     pageBreakPositions: [],
   });
   const [showPageBreaks, setShowPageBreaks] = useState(true);
@@ -131,6 +140,14 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   const setColorTheme = useCallback((colorTheme: ColorTheme) => dispatch(dispatchLayoutSettings({ colorTheme })), [dispatch]);
   const setPrintCompact = useCallback((printCompact: boolean) => dispatch(dispatchLayoutSettings({ printCompact })), [dispatch]);
   const setPrintOrientation = useCallback((printOrientation: PrintOrientation) => dispatch(dispatchLayoutSettings({ printOrientation })), [dispatch]);
+  const setPageBreakBufferLines = useCallback(
+    (lines: number) => dispatch(dispatchLayoutSettings({ pageBreakBufferLines: Math.max(0, Math.min(5, lines)) })),
+    [dispatch]
+  );
+  const setSectionStartNewPage = useCallback(
+    (v: boolean) => dispatch(dispatchLayoutSettings({ sectionStartNewPage: v })),
+    [dispatch]
+  );
 
   const resetToDefaults = useCallback(() => {
     dispatch(
@@ -266,19 +283,23 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   }, [dispatch, pageInfo.pageCount, settings]);
 
   // Page count update – only setState when values actually change to avoid feedback loops
-  const prevPageInfoRef = useRef<{ pageCount: number; contentHeight: number; usableHeight: number } | null>(null);
+  const prevPageInfoRef = useRef<{ pageCount: number; contentHeight: number; effectiveUsableHeight: number } | null>(null);
   const updatePageCount = useCallback((contentHeight: number) => {
     const usableHeight = getUsableHeightPx(settings);
-    const pageCount = Math.max(1, Math.ceil(contentHeight / usableHeight));
+    const bufferLines = Math.max(0, Math.min(5, settings.pageBreakBufferLines ?? 2));
+    const lineHeightPx = settings.fontSize * 1.333 * settings.lineHeight;
+    const pageBreakBufferPx = bufferLines * lineHeightPx;
+    const effectiveUsableHeight = Math.max(usableHeight * 0.5, usableHeight - pageBreakBufferPx);
+    const pageCount = Math.max(1, Math.ceil(contentHeight / effectiveUsableHeight));
     const prev = prevPageInfoRef.current;
-    if (prev && prev.pageCount === pageCount && prev.contentHeight === contentHeight && prev.usableHeight === usableHeight) {
+    if (prev && prev.pageCount === pageCount && prev.contentHeight === contentHeight && prev.effectiveUsableHeight === effectiveUsableHeight) {
       return;
     }
-    prevPageInfoRef.current = { pageCount, contentHeight, usableHeight };
+    prevPageInfoRef.current = { pageCount, contentHeight, effectiveUsableHeight };
 
     const pageBreakPositions: number[] = [];
     for (let i = 1; i < pageCount; i++) {
-      pageBreakPositions.push(i * usableHeight);
+      pageBreakPositions.push(i * effectiveUsableHeight);
     }
 
     setPageInfo({
@@ -287,6 +308,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
       contentHeight,
       pageHeight: getPageDimensions(settings).height,
       usableHeight,
+      effectiveUsableHeight,
+      pageBreakBufferPx,
       pageBreakPositions,
     });
   }, [settings, getUsableHeightPx]);
@@ -383,6 +406,8 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
         setColorTheme,
         setPrintCompact,
         setPrintOrientation,
+        setPageBreakBufferLines,
+        setSectionStartNewPage,
         resetToDefaults,
         applyCompactPreset,
         applyUltraCompactPreset,

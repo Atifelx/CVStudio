@@ -180,6 +180,10 @@ export interface LayoutSettings {
   printCompact: boolean;
   /** Print orientation: portrait (default) or landscape (wide) */
   printOrientation: PrintOrientation;
+  /** Lines of space left before page break so bullets/text don't get cut (default 2). 0–5. */
+  pageBreakBufferLines?: number;
+  /** When true, sections that would start near a page break start on the next page (default true). */
+  sectionStartNewPage?: boolean;
 }
 
 // DEFAULT: Standard resume formatting (11pt like MS Word)
@@ -198,6 +202,8 @@ export const DEFAULT_LAYOUT_SETTINGS: LayoutSettings = {
   colorTheme: 'blue',
   printCompact: true,
   printOrientation: 'portrait',
+  pageBreakBufferLines: 2,
+  sectionStartNewPage: true,
 };
 
 // COMPACT: Smaller text for fitting more content
@@ -215,6 +221,8 @@ export const COMPACT_LAYOUT_SETTINGS: LayoutSettings = {
   colorTheme: 'blue',
   printCompact: true,
   printOrientation: 'portrait',
+  pageBreakBufferLines: 2,
+  sectionStartNewPage: true,
 };
 
 // ULTRA COMPACT: Maximum density (9pt minimum readable)
@@ -232,6 +240,8 @@ export const ULTRA_COMPACT_SETTINGS: LayoutSettings = {
   colorTheme: 'blue',
   printCompact: true,
   printOrientation: 'portrait',
+  pageBreakBufferLines: 2,
+  sectionStartNewPage: true,
 };
 
 // BALANCED: Professional look (11pt standard)
@@ -249,4 +259,6 @@ export const BALANCED_LAYOUT_SETTINGS: LayoutSettings = {
   colorTheme: 'blue',
   printCompact: true,
   printOrientation: 'portrait',
+  pageBreakBufferLines: 2,
+  sectionStartNewPage: true,
 };

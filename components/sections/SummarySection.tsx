@@ -123,7 +123,7 @@ export default function SummarySection() {
   }
 
   return (
-    <div className="px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
+    <div className="resume-section px-8" style={{ paddingTop: 'var(--resume-section-gap)' }}>
       <ResumeSection 
         title={isClassic ? "Summary" : "PROFESSIONAL SUMMARY"} 
         onEdit={handleEdit}

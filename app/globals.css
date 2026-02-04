@@ -361,6 +361,12 @@ body {
     page-break-inside: avoid;
     break-inside: avoid;
   }
+
+  /* Start section on new page when it would otherwise land in the buffer zone (avoids header at bottom of page) */
+  .resume-container .resume-section[data-break-before="page"] {
+    page-break-before: always;
+    break-before: page;
+  }
   
   /* Additional protection for nested elements */
   .resume-container .experience-entry > *,

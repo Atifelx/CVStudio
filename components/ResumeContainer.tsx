@@ -60,6 +60,47 @@ export default function ResumeContainer({ children, id = 'resume-content' }: Res
     };
   }, [measureHeight, settings]);
 
+  // When page breaks are shown and sectionStartNewPage is on, mark sections that would start in the
+  // buffer zone (near a break) so they start on the next page (CSS break-before).
+  useEffect(() => {
+    if (!showPageBreaks || settings.sectionStartNewPage === false || !containerRef.current) return;
+    const container = containerRef.current;
+    const positions = pageInfo.pageBreakPositions;
+    const bufferPx = pageInfo.pageBreakBufferPx ?? 0;
+    if (positions.length === 0) return;
+
+    const run = () => {
+      const sections = container.querySelectorAll<HTMLElement>('.resume-section');
+      const containerRect = container.getBoundingClientRect();
+      const scrollTop = container.scrollTop || 0;
+
+      sections.forEach((el) => {
+        const rect = el.getBoundingClientRect();
+        const top = rect.top - containerRect.top + scrollTop;
+        let inDanger = false;
+        for (const breakPos of positions) {
+          if (top < breakPos && top > breakPos - bufferPx) {
+            inDanger = true;
+            break;
+          }
+        }
+        if (inDanger) {
+          el.setAttribute('data-break-before', 'page');
+        } else {
+          el.removeAttribute('data-break-before');
+        }
+      });
+    };
+
+    const t = setTimeout(run, 150);
+    const ro = new ResizeObserver(() => setTimeout(run, 100));
+    ro.observe(container);
+    return () => {
+      clearTimeout(t);
+      ro.disconnect();
+    };
+  }, [showPageBreaks, settings.sectionStartNewPage, pageInfo.pageBreakPositions, pageInfo.pageBreakBufferPx]);
+
   return (
     <div className="relative">
       {/* Resume Content */}
@@ -97,17 +138,20 @@ export default function ResumeContainer({ children, id = 'resume-content' }: Res
       {/* Page Number Labels (on the side) */}
       {showPageBreaks && (
         <div className="absolute left-0 top-0 w-8 h-full pointer-events-none no-print" style={{ marginLeft: '-40px' }}>
-          {Array.from({ length: pageInfo.pageCount }, (_, i) => (
-            <div
-              key={i}
-              className="page-number-label"
-              style={{
-                top: `${i * pageInfo.usableHeight + pageInfo.usableHeight / 2}px`,
-              }}
-            >
-              {i + 1}
-            </div>
-          ))}
+          {Array.from({ length: pageInfo.pageCount }, (_, i) => {
+            const effective = pageInfo.effectiveUsableHeight ?? pageInfo.usableHeight;
+            return (
+              <div
+                key={i}
+                className="page-number-label"
+                style={{
+                  top: `${i * effective + effective / 2}px`,
+                }}
+              >
+                {i + 1}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
