@@ -56,13 +56,21 @@ export const metadata: Metadata = {
     },
   },
 
-  // Icons
+  // Icons - Next.js will automatically serve icon.svg from app directory
+  // Also include explicit references for better browser/search engine support
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
     ],
     shortcut: '/favicon.svg',
     apple: '/favicon.svg',
+    other: [
+      {
+        rel: 'apple-touch-icon',
+        url: '/favicon.svg',
+      },
+    ],
   },
 
   // Manifest
@@ -198,6 +206,12 @@ export default function RootLayout({
   return (
     <html lang="en" dir="ltr">
       <head>
+        {/* Favicon links for maximum compatibility */}
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="shortcut icon" href="/favicon.svg" />
+        <link rel="apple-touch-icon" href="/favicon.svg" />
+        
         {/* Preconnect for performance */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
